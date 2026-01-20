@@ -74,7 +74,7 @@ Create a deterministic workspace on Ubuntu and capture the environment versions.
 **Action**
 
 - Set timezone Europe/Paris
-- Create folders: `~/poc/{stack,scripts,evidence/{photos,screenshots,logs,configs,exports},docs}`
+- Create folders: `~/Public/poc/{stack,scripts,evidence/{photos,screenshots,logs,configs,exports},docs}`
 - Save environment outputs into `evidence/logs/`
 
 **Test / Pass**
@@ -89,10 +89,10 @@ Create a deterministic workspace on Ubuntu and capture the environment versions.
 
 ```bash
 timedatectl set-timezone Europe/Paris
-mkdir -p ~/poc/{stack,scripts,evidence/{photos,screenshots,logs,configs,exports},docs}
-uname -a | tee ~/poc/evidence/logs/A1_uname.txt
-lsb_release -a | tee ~/poc/evidence/logs/A1_lsb_release.txt
-timedatectl | tee ~/poc/evidence/logs/A1_timedatectl.txt
+mkdir -p ~/Public/poc/{stack,scripts,evidence/{photos,screenshots,logs,configs,exports},docs}
+uname -a | tee ~/Public/poc/evidence/logs/A1_uname.txt
+lsb_release -a | tee ~/Public/poc/evidence/logs/A1_lsb_release.txt
+timedatectl | tee ~/Public/poc/evidence/logs/A1_timedatectl.txt
 ```
 
 ### A2 — LAN readiness (SLZB-06 + RAK gateway)
@@ -124,8 +124,8 @@ Your coordinator and gateway must be reachable with stable IPs before any softwa
 **Commands**
 
 ```bash
-ping -c 3 <SLZB06_IP> | tee ~/poc/evidence/logs/A2_ping_slzb06.txt
-ping -c 3 <RAK_GW_IP> | tee ~/poc/evidence/logs/A2_ping_rakgw.txt
+ping -c 3 <SLZB06_IP> | tee ~/Public/poc/evidence/logs/A2_ping_slzb06.txt
+ping -c 3 <RAK_GW_IP> | tee ~/Public/poc/evidence/logs/A2_ping_rakgw.txt
 ```
 
 ### B1 — Install Docker Engine + Compose
@@ -154,9 +154,9 @@ All PoC services run in Docker. The goal is a reproducible container runtime.
 **Commands**
 
 ```bash
-docker --version | tee ~/poc/evidence/logs/B1_docker_version.txt
-docker compose version | tee ~/poc/evidence/logs/B1_docker_compose_version.txt
-docker run --rm hello-world | tee ~/poc/evidence/logs/B1_hello_world.txt
+docker --version | tee ~/Public/poc/evidence/logs/B1_docker_version.txt
+docker compose version | tee ~/Public/poc/evidence/logs/B1_docker_compose_version.txt
+docker run --rm hello-world | tee ~/Public/poc/evidence/logs/B1_hello_world.txt
 ```
 
 ### C1 — Create stack configs (.env, Mosquitto, Postgres init, Z2M, ChirpStack, Gateway Bridge)
@@ -188,8 +188,8 @@ You are defining the reproducible infrastructure: security + persistence + repea
 **Commands**
 
 ```bash
-cd ~/poc/stack
-docker compose config | tee ~/poc/evidence/logs/C1_compose_config.txt
+cd ~/Public/poc/stack
+docker compose config | tee ~/Public/poc/evidence/logs/C1_compose_config.txt
 ```
 
 **Note:** If you already have a working stack from previous iterations, keep it. This project runbook focuses on *how to execute*, not forcing a new compose format.
@@ -221,14 +221,14 @@ This proves the software platform is stable before onboarding devices.
 **Commands**
 
 ```bash
-cd ~/poc/stack
+cd ~/Public/poc/stack
 docker compose up -d
-docker ps | tee ~/poc/evidence/logs/C2_docker_ps.txt
-docker compose logs --no-color > ~/poc/evidence/logs/C2_compose_logs.txt
+docker ps | tee ~/Public/poc/evidence/logs/C2_docker_ps.txt
+docker compose logs --no-color > ~/Public/poc/evidence/logs/C2_compose_logs.txt
 
 # Restart test
 docker compose restart
-docker ps | tee ~/poc/evidence/logs/C2_docker_ps_after_restart.txt
+docker ps | tee ~/Public/poc/evidence/logs/C2_docker_ps_after_restart.txt
 ```
 
 ### D1 — Zigbee backbone: configure Zigbee2MQTT to SLZB-06 over LAN
@@ -259,12 +259,12 @@ Freeze Zigbee channel and PAN IDs BEFORE pairing devices.
 
 ```bash
 # Save the config as evidence
-cp ~/poc/stack/zigbee2mqtt/configuration.yaml ~/poc/evidence/configs/D1_z2m_configuration.yaml
+cp ~/Public/poc/stack/zigbee2mqtt/configuration.yaml ~/Public/poc/evidence/configs/D1_z2m_configuration.yaml
 
 # Logs
-docker logs --tail 200 zigbee2mqtt | tee ~/poc/evidence/logs/D1_z2m_startup.txt
+docker logs --tail 200 zigbee2mqtt | tee ~/Public/poc/evidence/logs/D1_z2m_startup.txt
 docker restart zigbee2mqtt
-docker logs --tail 200 zigbee2mqtt | tee ~/poc/evidence/logs/D1_z2m_after_restart.txt
+docker logs --tail 200 zigbee2mqtt | tee ~/Public/poc/evidence/logs/D1_z2m_after_restart.txt
 ```
 
 ### E1 — Pair Zigbee periodic sensor #1 and prove cadence
@@ -295,7 +295,7 @@ Use a controlled pairing window and record the reset/join procedure.
 **Commands**
 
 ```bash
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/poc/evidence/logs/E1_zigbee_sensor1_mqtt.txt
+mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E1_zigbee_sensor1_mqtt.txt
 ```
 
 ### E2 — Pair Zigbee event-driven sensor and run N trials
@@ -326,7 +326,7 @@ Event-driven testing must be controlled: N stimuli, N expected events.
 
 ```bash
 # MQTT capture (run during trials)
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/poc/evidence/logs/E2_zigbee_event_trials_mqtt.txt
+mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E2_zigbee_event_trials_mqtt.txt
 ```
 
 ### E3 — Pair Zigbee actuator and validate ON/OFF
@@ -389,7 +389,7 @@ TLS server authentication must be correct before touching the gateway configurat
 **Commands**
 
 ```bash
-docker logs --tail 200 chirpstack-gateway-bridge | tee ~/poc/evidence/logs/F1_gwbridge_logs.txt
+docker logs --tail 200 chirpstack-gateway-bridge | tee ~/Public/poc/evidence/logs/F1_gwbridge_logs.txt
 ```
 
 ### F2 — Configure RAK WisGate Edge Lite 2 V2 (EU868, Basics Station, LNS-only)
@@ -444,7 +444,7 @@ ChirpStack must know the Gateway EUI and show online status.
 **Commands**
 
 ```bash
-docker logs --tail 200 chirpstack-gateway-bridge | tee ~/poc/evidence/logs/F3_gwbridge_reconnect.txt
+docker logs --tail 200 chirpstack-gateway-bridge | tee ~/Public/poc/evidence/logs/F3_gwbridge_reconnect.txt
 ```
 
 ### F4 — OTAA join LoRaWAN sensors (2) and capture MQTT uplinks
@@ -475,7 +475,7 @@ Prove joins and uplinks for two distinct DevEUIs. Keep AppKeys secure.
 **Commands**
 
 ```bash
-mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/poc/evidence/logs/F4_lorawan_uplinks_mqtt.txt
+mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/Public/poc/evidence/logs/F4_lorawan_uplinks_mqtt.txt
 ```
 
 ### F5 — Confirmed downlink to LoRaWAN TRV (device-confirmed + physical observation if feasible)
@@ -531,8 +531,8 @@ Define canonical IDs: Zigbee IEEE address; LoRaWAN DevEUI. Upsert rules prevent 
 **Commands**
 
 ```bash
-psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dn" | tee ~/poc/evidence/logs/G1_psql_schemas.txt
-psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dt poc.*" | tee ~/poc/evidence/logs/G1_psql_tables.txt
+psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dn" | tee ~/Public/poc/evidence/logs/G1_psql_schemas.txt
+psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dt poc.*" | tee ~/Public/poc/evidence/logs/G1_psql_tables.txt
 ```
 
 **Code / Config**
@@ -601,9 +601,9 @@ This is the 'digital spine': all telemetry is captured, timestamped, and queryab
 
 ```bash
 # Watch both inputs on MQTT while generating messages
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/poc/evidence/logs/G2_watch_zigbee.txt
+mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/G2_watch_zigbee.txt
 # in another terminal:
-mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/poc/evidence/logs/G2_watch_lora.txt
+mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/Public/poc/evidence/logs/G2_watch_lora.txt
 ```
 
 **Code / Config**
@@ -645,7 +645,7 @@ Sponsors need a clear UI. Keep it minimal, truthful, and stable across restarts.
 
 ```bash
 docker restart nodered
-docker logs --tail 200 nodered | tee ~/poc/evidence/logs/G3_nodered_restart.txt
+docker logs --tail 200 nodered | tee ~/Public/poc/evidence/logs/G3_nodered_restart.txt
 ```
 
 ### G4 — Manual control + truthful command state tracking
@@ -748,7 +748,7 @@ Produce measurable results: delivery rate, event capture rate, segmented latency
 **Commands**
 
 ```bash
-cd ~/poc
+cd ~/Public/poc
 tar -czf evidence_bundle.tgz evidence/
 sha256sum evidence_bundle.tgz > evidence_bundle.tgz.sha256
 ls -lah evidence_bundle.tgz evidence_bundle.tgz.sha256 | tee evidence/logs/I1_bundle_ls.txt
@@ -760,4 +760,3 @@ At each functional milestone, create a checkpoint:
 - `pg_dump` of the PostgreSQL DB
 - tar backups of Docker volumes (pg-data, nodered-data, mosquitto-data)
 - tar backup of `stack/zigbee2mqtt/` (paired devices)
-
