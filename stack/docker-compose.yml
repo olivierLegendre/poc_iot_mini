@@ -1,0 +1,102 @@
+name: poc-iot
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
+      - ./mosquitto/passwordfile:/mosquitto/config/passwordfile:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    environment:
+      - TZ=${TZ}
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${PG_DB}
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_PASSWORD=${PG_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+
+  chirpstack:
+    image: chirpstack/chirpstack:4
+    container_name: chirpstack
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - mosquitto
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./chirpstack/chirpstack.toml:/etc/chirpstack/chirpstack.toml:ro
+    environment:
+      - TZ=${TZ}
+
+  chirpstack-gateway-bridge:
+    image: chirpstack/chirpstack-gateway-bridge:4
+    container_name: chirpstack-gateway-bridge
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "${LNS_PORT}:${LNS_PORT}"
+    volumes:
+      - ./gateway-bridge/chirpstack-gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:ro
+      - ./gateway-bridge/certs:/etc/chirpstack-gateway-bridge/certs:ro
+    environment:
+      - TZ=${TZ}
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:latest
+    container_name: zigbee2mqtt
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./zigbee2mqtt:/app/data
+    environment:
+      - TZ=${TZ}
+
+  nodered:
+    build:
+      context: ./nodered
+    container_name: nodered
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - postgres
+    ports:
+      - "1880:1880"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - nodered-data:/data
+
+volumes:
+  pg-data:
+  mosquitto-data:
+  mosquitto-log:
+  nodered-data:
