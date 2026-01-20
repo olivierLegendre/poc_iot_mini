@@ -1,0 +1,18 @@
+# NOTE: this file is rendered at runtime by Mosquitto as-is.
+# Mosquitto does NOT expand environment variables.
+# Use scripts/20_generate_mqtt_auth.sh to generate the passwordfile.
+#
+# Admin: full access
+user admin
+topic readwrite #
+
+# Ingest: telemetry only
+user ingest
+topic readwrite zigbee2mqtt/#
+topic readwrite application/+/device/+/event/#
+topic readwrite gateway/+/event/#
+
+# Control: commands only
+user control
+topic readwrite zigbee2mqtt/+/set
+topic readwrite poc/commands/#

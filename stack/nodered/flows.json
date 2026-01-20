@@ -1,0 +1,9 @@
+[
+  {
+    "id": "tab1",
+    "type": "tab",
+    "label": "PoC Ingestion (template)",
+    "disabled": false,
+    "info": "Template only. Import your real flows here.\nSuggested: MQTT in (zigbee2mqtt/# + application/+/device/+/event/up) -> normalize -> PostgreSQL inserts -> dashboard.\n"
+  }
+]

@@ -1,0 +1,17 @@
+# ChirpStack v4 configuration template
+[postgresql]
+dsn="postgres://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=disable"
+
+[redis]
+url="redis://redis:6379"
+
+[mqtt]
+server="tcp://${MQTT_HOST}:${MQTT_PORT}"
+username="${MQTT_ADMIN_USER}"
+password="${MQTT_ADMIN_PASS}"
+
+[api]
+bind="0.0.0.0:8080"
+
+[logging]
+level="info"

@@ -1,0 +1,21 @@
+homeassistant: false
+permit_join: false
+frontend:
+  port: 8080
+
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://${MQTT_HOST}:${MQTT_PORT}
+  user: ${MQTT_ADMIN_USER}
+  password: ${MQTT_ADMIN_PASS}
+
+serial:
+  port: tcp://${SLZB06_IP}:${SLZB06_PORT}
+
+advanced:
+  channel: 15
+  pan_id: 0x1A62
+  ext_pan_id: [0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD]
+  network_key: GENERATE
+
+availability: true

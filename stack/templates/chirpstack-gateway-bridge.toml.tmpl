@@ -1,0 +1,16 @@
+# ChirpStack Gateway Bridge v4 config template
+[general]
+log_level="info"
+
+[integration.mqtt]
+server="tcp://${MQTT_HOST}:${MQTT_PORT}"
+username="${MQTT_ADMIN_USER}"
+password="${MQTT_ADMIN_PASS}"
+
+[backend.basic_station]
+bind="0.0.0.0:${LNS_PORT}"
+
+  [backend.basic_station.tls]
+  ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
+  cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
+  key="/etc/chirpstack-gateway-bridge/certs/server.key"
