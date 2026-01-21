@@ -8,6 +8,7 @@ services:
     ports:
       - "1883:1883"
     volumes:
+     # Mount config directory as RW because the image may chown config files on startup.
       - ./mosquitto:/mosquitto/config
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
@@ -46,8 +47,12 @@ services:
       - mosquitto
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     volumes:
-      - ./chirpstack/chirpstack.toml:/etc/chirpstack/chirpstack.toml:ro
+      # ChirpStack v4 must be started with --config-dir pointing to a directory of .toml files.
+      - ./chirpstack:/etc/chirpstack:ro
+    command: ["--config-dir", "/etc/chirpstack"]
     environment:
       - TZ=${TZ}
 
@@ -58,7 +63,10 @@ services:
     depends_on:
       - mosquitto
     ports:
+    # LoRa Basics Station LNS (ws/wss)
       - "${LNS_PORT}:${LNS_PORT}"
+    env_file:
+      - .env
     volumes:
       - ./gateway-bridge/chirpstack-gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:ro
       - ./gateway-bridge/certs:/etc/chirpstack-gateway-bridge/certs:ro
@@ -73,7 +81,10 @@ services:
       - mosquitto
     ports:
       - "8081:8080"
+    env_file:
+      - .env
     volumes:
+    # Must be writable (Z2M updates configuration.yaml via UI).
       - ./zigbee2mqtt:/app/data
     environment:
       - TZ=${TZ}
@@ -88,6 +99,8 @@ services:
       - postgres
     ports:
       - "1880:1880"
+    env_file:
+      - .env
     environment:
       - TZ=${TZ}
     volumes:

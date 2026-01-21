@@ -1,17 +1,34 @@
-# ChirpStack v4 configuration template
-[postgresql]
-dsn="postgres://chirpstack:postgresql_password@postgres:5432/chirpstack?sslmode=disable"
+# ChirpStack v4 configuration
+# This file is loaded by ChirpStack when started with: --config-dir /etc/chirpstack
+#
+# IMPORTANT:
+# - Use the Docker service names (postgres, redis, mosquitto) as hostnames.
+# - This config uses environment-variable substitution ($VARNAME). Ensure the container receives .env (compose env_file).
 
-[redis]
-url="redis://redis:6379"
-
-[mqtt]
-server="tcp://mosquitto:1883"
-username="admin"
-password="mqtt_admin_password"
+[logging]
+level="info"
 
 [api]
 bind="0.0.0.0:8080"
 
-[logging]
-level="info"
+[postgresql]
+dsn="postgres://$PG_USER:$PG_PASSWORD@$PG_HOST:$PG_PORT/$PG_DB?sslmode=disable"
+
+[redis]
+servers=[
+  "redis://redis:6379"
+]
+
+[integration]
+  [integration.mqtt]
+  server="tcp://$MQTT_HOST:$MQTT_PORT"
+  username="$MQTT_ADMIN_USER"
+  password="$MQTT_ADMIN_PASS"
+
+# Basics Station gateways connect through chirpstack-gateway-bridge.
+# The gateway-bridge will publish gateway events on MQTT and ChirpStack will subscribe.
+[gateway]
+  # Keep defaults; configuration is mostly handled by gateway-bridge.
+  # If you later need to change uplink/downlink topic templates, do it here.
+
+# Regions are configured in separate files in this directory, e.g. region_eu868.toml

@@ -1,16 +1,19 @@
-# ChirpStack Gateway Bridge v4 config template
+# ChirpStack Gateway Bridge v4 configuration (Basics Station backend)
 [general]
-log_level="info"
+# debug=5, info=4, warning=3, error=2, fatal=1, panic=0
+log_level=4
 
 [integration.mqtt]
-server="tcp://mosquitto:1883"
-username="admin"
-password="mqtt_admin_password"
+server="tcp://$MQTT_HOST:$MQTT_PORT"
+username="$MQTT_ADMIN_USER"
+password="$MQTT_ADMIN_PASS"
 
-[backend.basic_station]
-bind="0.0.0.0:3000"
+[backend]
+type="basic_station"
 
-  [backend.basic_station.tls]
-  ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
-  cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
-  key="/etc/chirpstack-gateway-bridge/certs/server.key"
+  [backend.basic_station]
+  bind="0.0.0.0:$LNS_PORT"
+  # TLS server (LNS) certificate presented to the gateway.
+  # Gateway must trust the CA that signed this cert (import ca.crt into the gateway).
+  tls_cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
+  tls_key="/etc/chirpstack-gateway-bridge/certs/server.key"

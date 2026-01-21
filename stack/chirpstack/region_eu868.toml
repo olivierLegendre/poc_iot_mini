@@ -1,0 +1,9 @@
+# Region configuration for EU868 (ChirpStack v4)
+# Minimal configuration for PoC; you can extend later as needed.
+
+[region]
+name="eu868"
+  [region.network]
+  enabled_uplink_channels=[0,1,2]
+  [region.gateway]
+  # Default settings are usually fine for a PoC.
