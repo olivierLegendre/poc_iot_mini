@@ -1,1 +1,7 @@
 stack/.env
+stack/mosquitto/passwordfile
+stack/zigbee2mqtt/log/
+
+/stack/.env
+/stack/mosquitto/passwordfile
+/stack/zigbee2mqtt/log/
