@@ -1,0 +1,16 @@
+[2026-01-21 08:42:31] info: 	z2m: Logging to console, file (filename: log.log)
+[2026-01-21 08:42:31] info: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+)
+[2026-01-21 08:42:31] info: 	z2m: Starting zigbee-herdsman (8.0.1)
+[2026-01-21 08:42:31] error: 	z2m: Error while starting zigbee-herdsman
+[2026-01-21 08:42:31] error: 	z2m: Failed to start zigbee-herdsman
+[2026-01-21 08:42:31] error: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+[2026-01-21 08:42:31] error: 	z2m: Exiting...
+[2026-01-21 08:42:31] error: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+    at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+    at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+    at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+    at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+    at Zigbee.start (/app/lib/zigbee.ts:70:48)
+    at Controller.start (/app/lib/controller.ts:101:13)
+    at start (/app/index.js:149:5)

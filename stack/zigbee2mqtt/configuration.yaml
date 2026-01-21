@@ -1,1 +1,44 @@
-# rendered from templates/zigbee2mqtt_configuration.yaml.tmpl
+homeassistant:
+  enabled: false
+frontend:
+  enabled: true
+  port: 8080
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+  user: admin
+  password: mqtt_admin_password
+serial:
+  port: tcp://192.168.1.50:6638
+advanced:
+  channel: 15
+  pan_id: 6754
+  ext_pan_id:
+    - 221
+    - 221
+    - 221
+    - 221
+    - 221
+    - 221
+    - 221
+    - 221
+  network_key:
+    - 209
+    - 81
+    - 225
+    - 83
+    - 215
+    - 5
+    - 226
+    - 251
+    - 90
+    - 37
+    - 138
+    - 146
+    - 25
+    - 146
+    - 34
+    - 166
+availability:
+  enabled: true
+version: 4
