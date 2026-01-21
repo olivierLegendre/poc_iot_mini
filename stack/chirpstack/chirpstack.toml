@@ -1,1 +1,17 @@
-# rendered from templates/chirpstack.toml.tmpl
+# ChirpStack v4 configuration template
+[postgresql]
+dsn="postgres://chirpstack:postgresql_password@postgres:5432/chirpstack?sslmode=disable"
+
+[redis]
+url="redis://redis:6379"
+
+[mqtt]
+server="tcp://mosquitto:1883"
+username="admin"
+password="mqtt_admin_password"
+
+[api]
+bind="0.0.0.0:8080"
+
+[logging]
+level="info"
