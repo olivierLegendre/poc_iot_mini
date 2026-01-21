@@ -1,0 +1,8 @@
+CONTAINER ID   IMAGE                                    COMMAND                  CREATED          STATUS                           PORTS                                         NAMES
+3fb94ea0af8e   poc-iot-nodered                          "./entrypoint.sh"        6 minutes ago    Up 3 minutes (healthy)           0.0.0.0:1880->1880/tcp, [::]:1880->1880/tcp   nodered
+5d85e50f1717   postgres:16                              "docker-entrypoint.s…"   6 minutes ago    Up 3 minutes                     0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   postgres
+bf75c3a5754a   koenkk/zigbee2mqtt:latest                "docker-entrypoint.s…"   12 minutes ago   Restarting (1) 37 seconds ago                                                  zigbee2mqtt
+5f59a6d7dac3   chirpstack/chirpstack:4                  "/usr/bin/chirpstack"    12 minutes ago   Restarting (2) 44 seconds ago                                                  chirpstack
+9cc1f89ce320   chirpstack/chirpstack-gateway-bridge:4   "/usr/bin/chirpstack…"   12 minutes ago   Restarting (1) 45 seconds ago                                                  chirpstack-gateway-bridge
+458aeab83861   redis:7                                  "docker-entrypoint.s…"   12 minutes ago   Up 3 minutes                     6379/tcp                                      redis
+6acaba43c845   eclipse-mosquitto:2.0                    "/docker-entrypoint.…"   12 minutes ago   Restarting (13) 44 seconds ago                                                 mosquitto

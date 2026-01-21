@@ -1,0 +1,482 @@
+mosquitto  | chown: /mosquitto/config/mosquitto.conf: Read-only file system
+mosquitto                  | chown: /mosquitto/config/passwordfile: Read-only file system
+mosquitto                  | chown: /mosquitto/config/acl: Read-only file system
+postgres                   | 
+postgres                   | PostgreSQL Database directory appears to contain a database; Skipping initialization
+postgres                   | 
+postgres                   | 2026-01-20 17:40:48.314 CET [1] LOG:  starting PostgreSQL 16.11 (Debian 16.11-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres                   | 2026-01-20 17:40:48.314 CET [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres                   | 2026-01-20 17:40:48.314 CET [1] LOG:  listening on IPv6 address "::", port 5432
+postgres                   | 2026-01-20 17:40:48.316 CET [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres                   | 2026-01-20 17:40:48.318 CET [29] LOG:  database system was shut down at 2026-01-20 17:40:47 CET
+postgres                   | 2026-01-20 17:40:48.321 CET [1] LOG:  database system is ready to accept connections
+nodered                    | 20 Jan 17:40:48 - [info] 
+nodered                    | 
+nodered                    | Welcome to Node-RED
+nodered                    | ===================
+nodered                    | 
+nodered                    | 20 Jan 17:40:48 - [info] Node-RED version: v3.1.15
+nodered                    | 20 Jan 17:40:48 - [info] Node.js  version: v16.20.2
+nodered                    | 20 Jan 17:40:48 - [info] Linux 6.8.0-90-generic x64 LE
+nodered                    | 20 Jan 17:40:48 - [info] Loading palette nodes
+nodered                    | 20 Jan 17:40:49 - [info] Dashboard version 3.6.6 started at /ui
+nodered                    | 20 Jan 17:40:49 - [info] Settings file  : /data/settings.js
+nodered                    | 20 Jan 17:40:49 - [info] Context store  : 'default' [module=memory]
+nodered                    | 20 Jan 17:40:49 - [info] User directory : /data
+nodered                    | 20 Jan 17:40:49 - [warn] Projects disabled : editorTheme.projects.enabled=false
+nodered                    | 20 Jan 17:40:49 - [info] Flows file     : /data/flows.json
+nodered                    | 20 Jan 17:40:49 - [warn] 
+nodered                    | 
+nodered                    | ---------------------------------------------------------------------
+nodered                    | Your flow credentials file is encrypted using a system-generated key.
+nodered                    | 
+nodered                    | If the system-generated key is lost for any reason, your credentials
+nodered                    | file will not be recoverable, you will have to delete it and re-enter
+nodered                    | your credentials.
+nodered                    | 
+nodered                    | You should set your own key using the 'credentialSecret' option in
+nodered                    | your settings file. Node-RED will then re-encrypt your credentials
+nodered                    | file using your chosen key the next time you deploy a change.
+nodered                    | ---------------------------------------------------------------------
+nodered                    | 
+nodered                    | 20 Jan 17:40:49 - [warn] Encrypted credentials not found
+nodered                    | 20 Jan 17:40:49 - [info] Server now running at http://127.0.0.1:1880/
+nodered                    | 20 Jan 17:40:49 - [info] Starting flows
+nodered                    | 20 Jan 17:40:49 - [info] Started flows
+chirpstack-gateway-bridge  | time="2026-01-20T16:34:57.754338393Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:34:58.172752721Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:34:58.634727298Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:34:59.208218567Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:00.155643494Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:01.907379872Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:05.264469805Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:11.827844924Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:24.784717893Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:35:50.532939938Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:36:41.884064965Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:37:42.045752541Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:38:42.201663Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:39:42.351070774Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:40:42.52186028Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack-gateway-bridge  | time="2026-01-20T16:41:42.688309283Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+chirpstack-gateway-bridge  | time="2026-01-20T16:42:42.892434095Z" level=fatal msg="unmarshal config error" error="decoding failed due to the following error(s):\n\n'general.log_level' cannot parse value as 'int': strconv.ParseInt: invalid syntax"
+redis                      | 1:C 20 Jan 2026 17:34:57.552 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+redis                      | 1:C 20 Jan 2026 17:34:57.553 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+chirpstack                 | 
+redis                      | 1:C 20 Jan 2026 17:34:57.553 * Redis version=7.4.7, bits=64, commit=00000000, modified=0, pid=1, just started
+redis                      | 1:C 20 Jan 2026 17:34:57.553 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf
+redis                      | 1:M 20 Jan 2026 17:34:57.553 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+redis                      | 1:M 20 Jan 2026 17:34:57.553 * monotonic clock: POSIX clock_gettime
+redis                      | 1:M 20 Jan 2026 17:34:57.554 * Running mode=standalone, port=6379.
+redis                      | 1:M 20 Jan 2026 17:34:57.554 * Server initialized
+redis                      | 1:M 20 Jan 2026 17:34:57.554 * Ready to accept connections tcp
+chirpstack                 | Usage: chirpstack --config <DIR>
+zigbee2mqtt                | Using '/app/data' as data directory
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | Migration notes written in /app/data/migration-1-to-2.log
+zigbee2mqtt                | Migration notes written in /app/data/migration-2-to-3.log
+zigbee2mqtt                | Migration notes written in /app/data/migration-3-to-4.log
+zigbee2mqtt                | [2026-01-20 17:34:58] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:34:58] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:34:58] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:34:58] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:34:58] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:34:58] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:34:58] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:34:58] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+zigbee2mqtt                | [2026-01-20 17:34:59] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:34:59] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:34:59] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:34:59] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:34:59] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:34:59] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:34:59] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:34:59] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+chirpstack                 | error: the following required arguments were not provided:
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+chirpstack                 |   --config <DIR>
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+chirpstack                 | 
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:00] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:00] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:00] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:00] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:00] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:00] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:00] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:00] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:01] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:02] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:02] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:02] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:02] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+zigbee2mqtt                | [2026-01-20 17:35:02] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+chirpstack                 | error: the following required arguments were not provided:
+zigbee2mqtt                | [2026-01-20 17:35:02] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:02] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:03] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:03] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:03] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:03] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:03] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:03] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:03] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:03] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+chirpstack                 |   --config <DIR>
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+chirpstack                 | 
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:05] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:05] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:05] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:05] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:05] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:05] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:05] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:05] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+chirpstack                 | Usage: chirpstack --config <DIR>
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+chirpstack                 | 
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:09] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:09] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:09] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:09] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:09] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:09] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:09] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:09] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:16] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+chirpstack                 | error: the following required arguments were not provided:
+chirpstack                 |   --config <DIR>
+chirpstack                 | 
+chirpstack                 | Usage: chirpstack --config <DIR>
+chirpstack                 | 
+chirpstack                 | For more information, try '--help'.
+zigbee2mqtt                | [2026-01-20 17:35:16] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:16] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:16] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:16] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:16] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:16] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:16] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:30] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:30] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:30] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:30] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:30] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:30] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:30] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:30] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:35:56] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:35:56] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:35:56] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:35:56] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:56] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:35:56] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:35:56] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:35:56] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:36:48] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:36:48] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:36:48] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:36:48] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:36:48] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:36:48] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:36:48] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:36:48] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:37:49] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:37:49] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:37:49] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:37:49] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:37:49] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:37:49] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:37:49] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:37:49] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:38:49] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:38:49] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:38:49] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:38:49] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:38:49] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:38:49] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:38:49] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:38:49] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:39:50] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:39:50] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:39:50] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:39:50] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:39:50] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:39:50] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:39:50] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:39:50] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:40:51] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:40:51] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:40:51] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:40:51] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:40:51] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:40:51] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:40:51] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:40:51] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:41:51] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:41:52] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:41:52] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:41:52] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:41:52] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:41:52] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:41:52] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:41:52] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)
+zigbee2mqtt                | Using '/app/data' as data directory
+zigbee2mqtt                | Starting Zigbee2MQTT without watchdog.
+zigbee2mqtt                | [2026-01-20 17:42:52] [32minfo[39m: 	z2m: Logging to console, file (filename: log.log)
+zigbee2mqtt                | [2026-01-20 17:42:52] [32minfo[39m: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+zigbee2mqtt                | )
+zigbee2mqtt                | [2026-01-20 17:42:52] [32minfo[39m: 	z2m: Starting zigbee-herdsman (8.0.1)
+zigbee2mqtt                | [2026-01-20 17:42:52] [31merror[39m: 	z2m: Error while starting zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:42:52] [31merror[39m: 	z2m: Failed to start zigbee-herdsman
+zigbee2mqtt                | [2026-01-20 17:42:52] [31merror[39m: 	z2m: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions
+zigbee2mqtt                | [2026-01-20 17:42:52] [31merror[39m: 	z2m: Exiting...
+zigbee2mqtt                | [2026-01-20 17:42:52] [31merror[39m: 	z2m: Error: Cannot discover TCP adapters at this time. Specify valid 'adapter' and 'port' in your configuration.
+zigbee2mqtt                |     at findTcpAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:597:15)
+zigbee2mqtt                |     at discoverAdapter (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapterDiscovery.ts:625:20)
+zigbee2mqtt                |     at Adapter.create (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/adapter/adapter.ts:53:49)
+zigbee2mqtt                |     at Controller.start (/app/node_modules/.pnpm/zigbee-herdsman@8.0.1/node_modules/zigbee-herdsman/src/controller/controller.ts:139:38)
+zigbee2mqtt                |     at Zigbee.start (/app/lib/zigbee.ts:70:48)
+zigbee2mqtt                |     at Controller.start (/app/lib/controller.ts:101:13)
+zigbee2mqtt                |     at start (/app/index.js:149:5)

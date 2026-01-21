@@ -1,0 +1,191 @@
+name: poc-iot
+services:
+  chirpstack:
+    container_name: chirpstack
+    depends_on:
+      mosquitto:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_started
+        required: true
+      redis:
+        condition: service_started
+        required: true
+    environment:
+      TZ: Europe/Paris
+    image: chirpstack/chirpstack:4
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/olivier/Public/poc/stack/chirpstack/chirpstack.toml
+        target: /etc/chirpstack/chirpstack.toml
+        read_only: true
+        bind: {}
+  chirpstack-gateway-bridge:
+    container_name: chirpstack-gateway-bridge
+    depends_on:
+      mosquitto:
+        condition: service_started
+        required: true
+    environment:
+      TZ: Europe/Paris
+    image: chirpstack/chirpstack-gateway-bridge:4
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "3000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/olivier/Public/poc/stack/gateway-bridge/chirpstack-gateway-bridge.toml
+        target: /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /home/olivier/Public/poc/stack/gateway-bridge/certs
+        target: /etc/chirpstack-gateway-bridge/certs
+        read_only: true
+        bind: {}
+  mosquitto:
+    container_name: mosquitto
+    environment:
+      TZ: Europe/Paris
+    image: eclipse-mosquitto:2.0
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 1883
+        published: "1883"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/olivier/Public/poc/stack/mosquitto/mosquitto.conf
+        target: /mosquitto/config/mosquitto.conf
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /home/olivier/Public/poc/stack/mosquitto/acl
+        target: /mosquitto/config/acl
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /home/olivier/Public/poc/stack/mosquitto/passwordfile
+        target: /mosquitto/config/passwordfile
+        read_only: true
+        bind: {}
+      - type: volume
+        source: mosquitto-data
+        target: /mosquitto/data
+        volume: {}
+      - type: volume
+        source: mosquitto-log
+        target: /mosquitto/log
+        volume: {}
+  nodered:
+    build:
+      context: /home/olivier/Public/poc/stack/nodered
+      dockerfile: Dockerfile
+    container_name: nodered
+    depends_on:
+      mosquitto:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_started
+        required: true
+    environment:
+      TZ: Europe/Paris
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 1880
+        published: "1880"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: nodered-data
+        target: /data
+        volume: {}
+  postgres:
+    container_name: postgres
+    environment:
+      POSTGRES_DB: chirpstack
+      POSTGRES_PASSWORD: change_me_pg
+      POSTGRES_USER: chirpstack
+      TZ: Europe/Paris
+    image: postgres:16
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "5432"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: pg-data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: /home/olivier/Public/poc/stack/postgres/init
+        target: /docker-entrypoint-initdb.d
+        read_only: true
+        bind: {}
+  redis:
+    container_name: redis
+    environment:
+      TZ: Europe/Paris
+    image: redis:7
+    networks:
+      default: null
+    restart: unless-stopped
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    depends_on:
+      mosquitto:
+        condition: service_started
+        required: true
+    environment:
+      TZ: Europe/Paris
+    image: koenkk/zigbee2mqtt:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8081"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/olivier/Public/poc/stack/zigbee2mqtt
+        target: /app/data
+        bind: {}
+networks:
+  default:
+    name: poc-iot_default
+volumes:
+  mosquitto-data:
+    name: poc-iot_mosquitto-data
+  mosquitto-log:
+    name: poc-iot_mosquitto-log
+  nodered-data:
+    name: poc-iot_nodered-data
+  pg-data:
+    name: poc-iot_pg-data
