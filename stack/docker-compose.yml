@@ -52,7 +52,7 @@ services:
     volumes:
       # ChirpStack v4 must be started with --config-dir pointing to a directory of .toml files.
       - ./chirpstack:/etc/chirpstack:ro
-    command: ["--config-dir", "/etc/chirpstack"]
+    command: ["--config", "/etc/chirpstack"]
     environment:
       - TZ=${TZ}
 
@@ -71,14 +71,16 @@ services:
       - ./gateway-bridge/chirpstack-gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:ro
       - ./gateway-bridge/certs:/etc/chirpstack-gateway-bridge/certs:ro
     environment:
+      - MQTT_SERVER=tcp://${MQTT_HOST}:${MQTT_PORT}
       - TZ=${TZ}
 
   zigbee2mqtt:
     image: koenkk/zigbee2mqtt:latest
     container_name: zigbee2mqtt
-    restart: unless-stopped
+    restart: "on-failure:5"
     depends_on:
       - mosquitto
+      - zigbee-adapter-sim
     ports:
       - "8081:8080"
     env_file:
@@ -105,6 +107,16 @@ services:
       - TZ=${TZ}
     volumes:
       - nodered-data:/data
+
+  zigbee-adapter-sim:
+    image: alpine:3.18
+    container_name: zigbee-adapter-sim
+    restart: unless-stopped
+    # Simple TCP listener to simulate a serial-over-TCP adapter for Zigbee2MQTT
+    command: sh -c "while true; do nc -l -p 6638 >/dev/null 2>&1; done"
+    # expose port internally (optional mapping to host can be added)
+    ports:
+      - "6638"
 
 volumes:
   pg-data:

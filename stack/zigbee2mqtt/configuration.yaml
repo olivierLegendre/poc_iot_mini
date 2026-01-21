@@ -5,12 +5,12 @@ frontend:
   port: 8080
 mqtt:
   base_topic: zigbee2mqtt
-  server: mqtt://$MQTT_HOST:$MQTT_PORT
-  user: $MQTT_ADMIN_USER
-  password: $MQTT_ADMIN_PASS
+  server: mqtt://mosquitto:1883
+  user: admin
+  password: mqtt_admin_password
+adapter: zstack
 serial:
-  port: tcp://$SLZB06_IP:$SLZB06_PORT
-  adapter: ember
+  port: tcp://zigbee-adapter-sim:6638
 advanced:
   channel: 15
   pan_id: 6754
@@ -24,22 +24,22 @@ advanced:
     - 221
     - 221
   network_key:
-    - 73
+    - 199
+    - 74
+    - 199
+    - 234
+    - 9
+    - 211
+    - 117
+    - 92
+    - 245
     - 49
-    - 51
-    - 21
-    - 13
-    - 90
-    - 81
-    - 184
-    - 10
-    - 137
-    - 26
-    - 221
-    - 131
-    - 161
-    - 118
-    - 123
+    - 23
+    - 185
+    - 95
+    - 27
+    - 37
+    - 182
 availability:
   enabled: true
 version: 4

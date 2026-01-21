@@ -9,8 +9,13 @@ mqtt:
   user: ${MQTT_ADMIN_USER}
   password: ${MQTT_ADMIN_PASS}
 
+# Adapter type: specify the adapter/protocol used by zigbee-herdsman
+# Common values: 'zstack', 'ezsp', 'deconz', 'znp' (adjust if needed)
+adapter: zstack
+
 serial:
-  port: tcp://${SLZB06_IP}:${SLZB06_PORT}
+# When hardware is unavailable, point to the simulator service: zigbee-adapter-sim:6638
+  port: tcp://zigbee-adapter-sim:6638
 
 advanced:
   channel: 15

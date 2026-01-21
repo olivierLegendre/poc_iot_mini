@@ -12,6 +12,8 @@ This scaffold provides the **missing stack files** referenced by the runbook:
 ## Install into your project root
 Copy the contents of this zip to: `~/Public/poc`
 
+## Used to generate templates with adequate vars
+
 Then:
 1) `bash scripts/00_install_prereqs.sh`
 2) `cp stack/.env.example stack/.env` and edit values
