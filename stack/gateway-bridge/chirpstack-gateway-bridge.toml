@@ -1,1 +1,16 @@
-# rendered from templates/chirpstack-gateway-bridge.toml.tmpl
+# ChirpStack Gateway Bridge v4 config template
+[general]
+log_level="info"
+
+[integration.mqtt]
+server="tcp://mosquitto:1883"
+username="admin"
+password="mqtt_admin_password"
+
+[backend.basic_station]
+bind="0.0.0.0:3000"
+
+  [backend.basic_station.tls]
+  ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
+  cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
+  key="/etc/chirpstack-gateway-bridge/certs/server.key"
