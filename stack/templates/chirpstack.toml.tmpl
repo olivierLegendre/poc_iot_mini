@@ -5,8 +5,9 @@ dsn="postgres://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode
 [redis]
 url="redis://redis:6379"
 
-[mqtt]
-server="tcp://${MQTT_HOST}:${MQTT_PORT}"
+[integration.mqtt]
+server="tcp://${MQTT_HOST}:${MQTT_PORT}/"
+servers=["tcp://${MQTT_HOST}:${MQTT_PORT}"]
 username="${MQTT_ADMIN_USER}"
 password="${MQTT_ADMIN_PASS}"
 

@@ -1,45 +1,26 @@
-homeassistant:
-  enabled: false
+homeassistant: false
+permit_join: false
 frontend:
-  enabled: true
   port: 8080
+
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://mosquitto:1883
   user: admin
   password: mqtt_admin_password
+
+# Adapter type: specify the adapter/protocol used by zigbee-herdsman
+# Common values: 'zstack', 'ezsp', 'deconz', 'znp' (adjust if needed)
 adapter: zstack
+
 serial:
+# When hardware is unavailable, point to the simulator service: zigbee-adapter-sim:6638
   port: tcp://zigbee-adapter-sim:6638
+
 advanced:
   channel: 15
-  pan_id: 6754
-  ext_pan_id:
-    - 221
-    - 221
-    - 221
-    - 221
-    - 221
-    - 221
-    - 221
-    - 221
-  network_key:
-    - 199
-    - 74
-    - 199
-    - 234
-    - 9
-    - 211
-    - 117
-    - 92
-    - 245
-    - 49
-    - 23
-    - 185
-    - 95
-    - 27
-    - 37
-    - 182
-availability:
-  enabled: true
-version: 4
+  pan_id: 0x1A62
+  ext_pan_id: [0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD]
+  network_key: GENERATE
+
+availability: true

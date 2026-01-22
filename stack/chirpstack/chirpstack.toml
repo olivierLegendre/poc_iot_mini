@@ -5,8 +5,9 @@ dsn="postgres://chirpstack:postgresql_password@postgres:5432/chirpstack?sslmode=
 [redis]
 url="redis://redis:6379"
 
-[mqtt]
-server="tcp://mosquitto:1883"
+[integration.mqtt]
+server="tcp://mosquitto:1883/"
+servers=["tcp://mosquitto:1883"]
 username="admin"
 password="mqtt_admin_password"
 
