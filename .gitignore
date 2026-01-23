@@ -5,3 +5,15 @@ stack/zigbee2mqtt/log/
 /stack/.env
 /stack/mosquitto/passwordfile
 /stack/zigbee2mqtt/log/
+# Environment variables file
+.env
+.github/
+.vscode/
+.DS_Store
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.idea/
+*.iml
