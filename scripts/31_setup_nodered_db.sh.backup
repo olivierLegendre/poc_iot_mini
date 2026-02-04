@@ -1,0 +1,210 @@
+\
+#!/usr/bin/env bash
+set -euo pipefail
+
+# -----------------------------------------------------------------------------
+# Option A: Create a dedicated PostgreSQL role + database for Node-RED
+#
+# This script is designed for a Docker Compose setup where PostgreSQL runs
+# in a container (default name: "postgres"). It runs SQL inside the container
+# using `docker exec`.
+#
+# It is idempotent:
+# - Creates role if missing
+# - Creates database if missing
+# - Creates tables (IF NOT EXISTS)
+#
+# REQUIREMENTS:
+# - docker + docker compose
+# - a running postgres container
+#
+# USAGE:
+#   chmod +x 30_setup_nodered_db.sh
+#   ./30_setup_nodered_db.sh
+#
+# ENV OVERRIDES (optional):
+#   POSTGRES_CONTAINER=postgres
+#   ADMIN_USER=postgres
+#   ADMIN_DB=postgres
+#   NR_PG_DB=poc_nodered
+#   NR_PG_USER=nodered
+#   NR_PG_PASSWORD=...
+# -----------------------------------------------------------------------------
+
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-postgres}"
+ADMIN_USER="${ADMIN_USER:-postgres}"
+ADMIN_DB="${ADMIN_DB:-postgres}"
+
+NR_PG_DB="${NR_PG_DB:-poc_nodered}"
+NR_PG_USER="${NR_PG_USER:-nodered}"
+NR_PG_PASSWORD="${NR_PG_PASSWORD:-}"
+
+# If a .env exists in current directory, you can choose to load it.
+# This is OFF by default to avoid accidentally importing unrelated variables.
+LOAD_DOTENV="${LOAD_DOTENV:-false}"
+if [[ "$LOAD_DOTENV" == "true" && -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { echo "ERROR: missing command: $1" >&2; exit 1; }
+}
+
+require_cmd docker
+
+if ! docker ps --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
+  echo "ERROR: postgres container '$POSTGRES_CONTAINER' not running." >&2
+  echo "Hint: docker compose up -d postgres" >&2
+  exit 1
+fi
+
+# Prompt for password if missing
+if [[ -z "$NR_PG_PASSWORD" ]]; then
+  echo "Enter password for new Node-RED PostgreSQL role '$NR_PG_USER':"
+  read -r -s NR_PG_PASSWORD
+  echo
+  if [[ -z "$NR_PG_PASSWORD" ]]; then
+    echo "ERROR: password cannot be empty." >&2
+    exit 1
+  fi
+fi
+
+# Try admin connection; if it fails, fallback to chirpstack user automatically
+ADMIN_USER_EFFECTIVE="$ADMIN_USER"
+if ! docker exec -i "$POSTGRES_CONTAINER" psql -U "$ADMIN_USER" -d "$ADMIN_DB" -X -q -c "SELECT 1;" >/dev/null 2>&1; then
+  if docker exec -i "$POSTGRES_CONTAINER" psql -U "chirpstack" -d "postgres" -X -q -c "SELECT 1;" >/dev/null 2>&1; then
+    ADMIN_USER_EFFECTIVE="chirpstack"
+    ADMIN_DB="postgres"
+    echo "WARN: cannot connect as ADMIN_USER='$ADMIN_USER'. Using fallback user 'chirpstack'."
+  else
+    echo "ERROR: cannot connect to Postgres as '$ADMIN_USER' or fallback 'chirpstack'." >&2
+    echo "Set ADMIN_USER/ADMIN_DB to a superuser (often 'postgres'), or run with correct credentials." >&2
+    exit 1
+  fi
+fi
+
+echo "Using postgres container: $POSTGRES_CONTAINER"
+echo "Admin connection: user=$ADMIN_USER_EFFECTIVE db=$ADMIN_DB"
+echo "Target Node-RED role: $NR_PG_USER"
+echo "Target Node-RED database: $NR_PG_DB"
+echo
+
+# 1) Create role if missing (securely quoted in PL/pgSQL)
+ROLE_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'nr_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'nr_user', :'nr_pass');
+  ELSE
+    -- Ensure it can login; do not overwrite password silently
+    EXECUTE format('ALTER ROLE %I LOGIN', :'nr_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER_EFFECTIVE" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_user="$NR_PG_USER" \
+  -v nr_pass="$NR_PG_PASSWORD" \
+  -c "$ROLE_SQL"
+
+echo "OK: role ensured: $NR_PG_USER"
+
+# 2) Create DB if missing, owned by role
+DB_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'nr_db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'nr_db', :'nr_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER_EFFECTIVE" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_db="$NR_PG_DB" \
+  -v nr_user="$NR_PG_USER" \
+  -c "$DB_SQL"
+
+echo "OK: database ensured: $NR_PG_DB"
+
+# 3) Harden basic permissions (optional but recommended)
+PERM_SQL=$(cat <<'SQL'
+REVOKE ALL ON DATABASE :"nr_db" FROM PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE :"nr_db" TO :"nr_user";
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER_EFFECTIVE" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_db="$NR_PG_DB" \
+  -v nr_user="$NR_PG_USER" \
+  -c "$PERM_SQL"
+
+echo "OK: database permissions set"
+
+# 4) Create tables inside the Node-RED DB (as owner role)
+TABLE_SQL=$(cat <<'SQL'
+CREATE TABLE IF NOT EXISTS device_registry (
+  id BIGSERIAL PRIMARY KEY,
+  source TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (source, device_id)
+);
+
+CREATE TABLE IF NOT EXISTS telemetry_events (
+  id BIGSERIAL PRIMARY KEY,
+  ts TIMESTAMPTZ NOT NULL,
+  source TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_events_ts
+  ON telemetry_events(ts);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_events_device
+  ON telemetry_events(source, device_id, ts DESC);
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$NR_PG_USER" \
+  -d "$NR_PG_DB" \
+  -X -q \
+  -c "$TABLE_SQL"
+
+echo "OK: tables ensured in $NR_PG_DB"
+echo
+echo "Done."
+echo
+echo "Node-RED PostgreSQL config (node-red-contrib-postgresql):"
+echo "  host     = postgres"
+echo "  port     = 5432"
+echo "  database = $NR_PG_DB"
+echo "  user     = $NR_PG_USER"
+echo "  password = (the one you set)"
+echo "  ssl      = false (for local PoC)"
+echo
+echo "Verification:"
+echo "  docker exec -it $POSTGRES_CONTAINER psql -U $NR_PG_USER -d $NR_PG_DB -c '\\dt'"

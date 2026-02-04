@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# -----------------------------------------------------------------------------
+# Setup PostgreSQL Users and Databases
+#
+# This script is designed for a Docker Compose setup where PostgreSQL runs
+# in a container (default name: "postgres"). It runs SQL inside the container
+# using `docker exec`.
+#
+# Creates three users with their respective databases:
+# - admin (superuser, default: postgres)
+# - chirpstack (owns chirpstack database)
+# - nodered (owns nodered database)
+#
+# It is idempotent:
+# - Creates roles if missing
+# - Creates databases if missing
+# - Grants full permissions to each role on their database
+#
+# REQUIREMENTS:
+# - docker + docker compose
+# - a running postgres container
+#
+# USAGE:
+#   chmod +x 31_setup_postgresql_users.sh
+#   ./31_setup_postgresql_users.sh
+#
+# ENV OVERRIDES (optional, typically set in .env):
+#   POSTGRES_CONTAINER=postgres
+#   ADMIN_USER=postgres
+#   ADMIN_DB=postgres
+#   PG_USER=chirpstack
+#   PG_DB=chirpstack
+#   PG_PASSWORD=...
+#   NR_PG_DB=poc_nodered
+#   NR_PG_USER=nodered
+#   NR_PG_PASSWORD=...
+# -----------------------------------------------------------------------------
+
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-postgres}"
+ADMIN_USER="${ADMIN_USER:-postgres}"
+ADMIN_DB="${ADMIN_DB:-postgres}"
+
+PG_USER="${PG_USER:-chirpstack}"
+PG_DB="${PG_DB:-chirpstack}"
+PG_PASSWORD="${PG_PASSWORD:-}"
+
+NR_PG_DB="${NR_PG_DB:-poc_nodered}"
+NR_PG_USER="${NR_PG_USER:-nodered}"
+NR_PG_PASSWORD="${NR_PG_PASSWORD:-}"
+
+# If a .env exists in current directory, you can choose to load it.
+# This is OFF by default to avoid accidentally importing unrelated variables.
+LOAD_DOTENV="${LOAD_DOTENV:-false}"
+if [[ "$LOAD_DOTENV" == "true" && -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { echo "ERROR: missing command: $1" >&2; exit 1; }
+}
+
+require_cmd docker
+
+if ! docker ps --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
+  echo "ERROR: postgres container '$POSTGRES_CONTAINER' not running." >&2
+  echo "Hint: docker compose up -d postgres" >&2
+  exit 1
+fi
+
+# Prompt for ChirpStack password if missing
+if [[ -z "$PG_PASSWORD" ]]; then
+  echo "Enter password for PostgreSQL role '$PG_USER':"
+  read -r -s PG_PASSWORD
+  echo
+  if [[ -z "$PG_PASSWORD" ]]; then
+    echo "ERROR: password cannot be empty." >&2
+    exit 1
+  fi
+fi
+
+# Prompt for Node-RED password if missing
+if [[ -z "$NR_PG_PASSWORD" ]]; then
+  echo "Enter password for PostgreSQL role '$NR_PG_USER':"
+  read -r -s NR_PG_PASSWORD
+  echo
+  if [[ -z "$NR_PG_PASSWORD" ]]; then
+    echo "ERROR: password cannot be empty." >&2
+    exit 1
+  fi
+fi
+
+# Test admin connection
+if ! docker exec -i "$POSTGRES_CONTAINER" psql -U "$ADMIN_USER" -d "$ADMIN_DB" -X -q -c "SELECT 1;" >/dev/null 2>&1; then
+  echo "ERROR: cannot connect to Postgres as '$ADMIN_USER'." >&2
+  echo "Ensure the postgres container is running and ADMIN_USER is set to a superuser." >&2
+  exit 1
+fi
+
+echo "Using postgres container: $POSTGRES_CONTAINER"
+echo "Admin user: $ADMIN_USER"
+echo "Target ChirpStack role: $PG_USER"
+echo "Target ChirpStack database: $PG_DB"
+echo "Target Node-RED role: $NR_PG_USER"
+echo "Target Node-RED database: $NR_PG_DB"
+echo
+
+# =============================================================================
+# Create ChirpStack Role and Database
+# =============================================================================
+
+CHIRPSTACK_ROLE_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'pg_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'pg_user', :'pg_pass');
+  ELSE
+    EXECUTE format('ALTER ROLE %I LOGIN', :'pg_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v pg_user="$PG_USER" \
+  -v pg_pass="$PG_PASSWORD" \
+  -c "$CHIRPSTACK_ROLE_SQL"
+
+echo "OK: role ensured: $PG_USER"
+
+CHIRPSTACK_DB_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'pg_db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'pg_db', :'pg_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v pg_db="$PG_DB" \
+  -v pg_user="$PG_USER" \
+  -c "$CHIRPSTACK_DB_SQL"
+
+echo "OK: database ensured: $PG_DB"
+
+# Grant full privileges to chirpstack role on chirpstack database
+CHIRPSTACK_PERM_SQL=$(cat <<'SQL'
+GRANT ALL ON DATABASE :"pg_db" TO :"pg_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"pg_user" IN SCHEMA public GRANT ALL ON TABLES TO :"pg_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"pg_user" IN SCHEMA public GRANT ALL ON SEQUENCES TO :"pg_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"pg_user" IN SCHEMA public GRANT ALL ON FUNCTIONS TO :"pg_user";
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v pg_db="$PG_DB" \
+  -v pg_user="$PG_USER" \
+  -c "$CHIRPSTACK_PERM_SQL"
+
+echo "OK: database permissions set for $PG_USER on $PG_DB"
+
+# =============================================================================
+# Create Node-RED Role and Database
+# =============================================================================
+
+NODERED_ROLE_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'nr_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'nr_user', :'nr_pass');
+  ELSE
+    EXECUTE format('ALTER ROLE %I LOGIN', :'nr_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_user="$NR_PG_USER" \
+  -v nr_pass="$NR_PG_PASSWORD" \
+  -c "$NODERED_ROLE_SQL"
+
+echo "OK: role ensured: $NR_PG_USER"
+
+NODERED_DB_SQL=$(cat <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'nr_db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'nr_db', :'nr_user');
+  END IF;
+END $$;
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_db="$NR_PG_DB" \
+  -v nr_user="$NR_PG_USER" \
+  -c "$NODERED_DB_SQL"
+
+echo "OK: database ensured: $NR_PG_DB"
+
+# Grant full privileges to nodered role on nodered database
+NODERED_PERM_SQL=$(cat <<'SQL'
+GRANT ALL ON DATABASE :"nr_db" TO :"nr_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"nr_user" IN SCHEMA public GRANT ALL ON TABLES TO :"nr_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"nr_user" IN SCHEMA public GRANT ALL ON SEQUENCES TO :"nr_user";
+ALTER DEFAULT PRIVILEGES FOR USER :"nr_user" IN SCHEMA public GRANT ALL ON FUNCTIONS TO :"nr_user";
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$ADMIN_USER" \
+  -d "$ADMIN_DB" \
+  -X -q \
+  -v nr_db="$NR_PG_DB" \
+  -v nr_user="$NR_PG_USER" \
+  -c "$NODERED_PERM_SQL"
+
+echo "OK: database permissions set for $NR_PG_USER on $NR_PG_DB"
+
+# =============================================================================
+# Create Node-RED Tables (optional, for reference)
+# =============================================================================
+
+TABLE_SQL=$(cat <<'SQL'
+CREATE TABLE IF NOT EXISTS device_registry (
+  id BIGSERIAL PRIMARY KEY,
+  source TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (source, device_id)
+);
+
+CREATE TABLE IF NOT EXISTS telemetry_events (
+  id BIGSERIAL PRIMARY KEY,
+  ts TIMESTAMPTZ NOT NULL,
+  source TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_events_ts
+  ON telemetry_events(ts);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_events_device
+  ON telemetry_events(source, device_id, ts DESC);
+SQL
+)
+
+docker exec -i "$POSTGRES_CONTAINER" psql \
+  -v ON_ERROR_STOP=1 \
+  -U "$NR_PG_USER" \
+  -d "$NR_PG_DB" \
+  -X -q \
+  -c "$TABLE_SQL"
+
+echo "OK: tables ensured in $NR_PG_DB"
+
+echo
+echo "Done."
+echo
+echo "ChirpStack PostgreSQL config:"
+echo "  host     = postgres"
+echo "  port     = 5432"
+echo "  database = $PG_DB"
+echo "  user     = $PG_USER"
+echo "  password = (the one you set)"
+echo
+echo "Node-RED PostgreSQL config (node-red-contrib-postgresql):"
+echo "  host     = postgres"
+echo "  port     = 5432"
+echo "  database = $NR_PG_DB"
+echo "  user     = $NR_PG_USER"
+echo "  password = (the one you set)"
+echo
+echo "Verification (ChirpStack):"
+echo "  docker exec -it $POSTGRES_CONTAINER psql -U $PG_USER -d $PG_DB -c '\\dt'"
+echo
+echo "Verification (Node-RED):"
+echo "  docker exec -it $POSTGRES_CONTAINER psql -U $NR_PG_USER -d $NR_PG_DB -c '\\dt'"
