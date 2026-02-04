@@ -6,7 +6,7 @@ This scaffold provides the **missing stack files** referenced by the runbook:
 - PostgreSQL init (poc.* schema)
 - ChirpStack + Gateway Bridge config templates rendered from .env
 - Zigbee2MQTT configuration template rendered from .env
-- Node-RED Dockerfile + placeholder flows.json
+- Node-RED Dockerfile + base flows.json (MQTT → PostgreSQL ingestion)
 - Helper scripts
 
 
@@ -28,6 +28,15 @@ You can run a single setup script from anywhere inside the repository:
 `bash scripts/50_setup_all.sh`
 
 If `.env` does not exist, the script will copy `.env.example` to `.env` and stop so you can review credentials before re-running it.
+
+## Node-RED base flow
+The Node-RED `stack/nodered/flows.json` file includes a base ingestion flow that:
+- Subscribes to `zigbee2mqtt/#` and `application/+/device/+/event/#`.
+- Normalizes messages into a single envelope.
+- Upserts `poc.devices` and inserts `poc.telemetry` rows.
+- Exposes `GET /poc/last` for a simple last-seen cache.
+
+Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
 
 ## Important nuance (Mosquitto ACL)
 Mosquitto does **not** expand environment variables inside `acl`.
