@@ -1,10 +1,28 @@
 stack/.env
 stack/mosquitto/passwordfile
 stack/zigbee2mqtt/log/
+stack/chirpstack/chirpstack.toml
+stack/gateway-bridge/chirpstack-gateway-bridge.toml
+stack/zigbee2mqtt/configuration.yaml
+stack/zigbee2mqtt/configuration_backup_v*.yaml
+stack/zigbee2mqtt/state.json
+stack/gateway-bridge/certs/*.key
+stack/gateway-bridge/certs/*.csr
+stack/gateway-bridge/certs/*.srl
+stack/gateway-bridge/certs/*.crt
 
 /stack/.env
 /stack/mosquitto/passwordfile
 /stack/zigbee2mqtt/log/
+/stack/chirpstack/chirpstack.toml
+/stack/gateway-bridge/chirpstack-gateway-bridge.toml
+/stack/zigbee2mqtt/configuration.yaml
+/stack/zigbee2mqtt/configuration_backup_v*.yaml
+/stack/zigbee2mqtt/state.json
+/stack/gateway-bridge/certs/*.key
+/stack/gateway-bridge/certs/*.csr
+/stack/gateway-bridge/certs/*.srl
+/stack/gateway-bridge/certs/*.crt
 # Environment variables file
 .env
 .github/
