@@ -2,7 +2,7 @@
   {
     "id": "tab_poc_base_pg",
     "type": "tab",
-    "label": "PoC MQTT \u2192 PostgreSQL + Dashboard",
+    "label": "PoC MQTT PostgreSQL + Dashboard",
     "disabled": false,
     "info": "Ingest Zigbee2MQTT + ChirpStack events, normalize, upsert the device registry, insert telemetry into Postgres, and drive a FlowFuse Dashboard histogram + control buttons."
   },
@@ -240,7 +240,7 @@
     "id": "fn_norm_pg",
     "type": "function",
     "z": "tab_poc_base_pg",
-    "name": "Normalize \u2192 msg.poc (envelope)",
+    "name": "Normalize msg.poc (envelope)",
     "func": "function isoNow() { return new Date().toISOString(); }\nfunction asIso(value) {\n  if (!value) return isoNow();\n  const parsed = Date.parse(value);\n  return Number.isNaN(parsed) ? isoNow() : new Date(parsed).toISOString();\n}\n\nconst topic = msg.topic || '';\nconst payload = (typeof msg.payload === 'object' && msg.payload) ? msg.payload : { raw: msg.payload };\nlet out = {\n  source: 'unknown',\n  deviceId: 'unknown',\n  eventType: 'unknown',\n  ts: isoNow(),\n  topic,\n  metrics: {},\n  raw: payload\n};\n\nif (topic.startsWith('zigbee2mqtt/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 2 && parts[1] !== 'bridge') {\n    out.source = 'zigbee';\n    out.deviceId = parts[1];\n    out.eventType = 'state';\n    out.metrics = payload;\n    out.ts = asIso(payload.last_seen);\n  }\n}\n\nif (topic.startsWith('application/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 6 && parts[2] === 'device' && parts[4] === 'event') {\n    out.source = 'lorawan';\n    out.deviceId = parts[3];\n    out.eventType = parts[5];\n    out.metrics = payload;\n    out.ts = asIso(payload.time);\n  }\n}\n\nif (out.source === 'unknown') { return null; }\nmsg.poc = out;\nreturn msg;",
     "outputs": 1,
     "noerr": 0,
