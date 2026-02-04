@@ -2,9 +2,9 @@
   {
     "id": "tab_poc_base_pg",
     "type": "tab",
-    "label": "PoC MQTT → PostgreSQL (Base)",
+    "label": "PoC MQTT → PostgreSQL + Dashboard",
     "disabled": false,
-    "info": "Ingest Zigbee2MQTT + ChirpStack events, normalize, upsert the device registry, and insert telemetry into Postgres."
+    "info": "Ingest Zigbee2MQTT + ChirpStack events, normalize, upsert the device registry, insert telemetry into Postgres, and drive a FlowFuse Dashboard histogram + control buttons."
   },
   {
     "id": "bkr_mqtt_pg",
@@ -27,7 +27,9 @@
     "willTopic": "",
     "willQos": "0",
     "willPayload": "",
-    "sessionExpiry": ""
+    "sessionExpiry": "",
+    "user": "admin",
+    "password": "CHANGE_ME"
   },
   {
     "id": "pg_cfg_1",
@@ -51,6 +53,51 @@
     "userFieldType": "str",
     "password": "CHANGE_ME",
     "passwordFieldType": "str"
+  },
+  {
+    "id": "ui_base_poc",
+    "type": "ui-base",
+    "name": "PoC Dashboard",
+    "theme": "ui_theme_poc",
+    "site": ""
+  },
+  {
+    "id": "ui_page_poc",
+    "type": "ui-page",
+    "name": "PoC",
+    "ui": "ui_base_poc",
+    "path": "/ui/poc",
+    "icon": "dashboard",
+    "order": 1
+  },
+  {
+    "id": "ui_group_activity",
+    "type": "ui-group",
+    "name": "Activity",
+    "page": "ui_page_poc",
+    "order": 1,
+    "width": 12,
+    "collapse": false
+  },
+  {
+    "id": "ui_group_controls",
+    "type": "ui-group",
+    "name": "Controls",
+    "page": "ui_page_poc",
+    "order": 2,
+    "width": 12,
+    "collapse": false
+  },
+  {
+    "id": "ui_theme_poc",
+    "type": "ui-theme",
+    "name": "PoC Theme",
+    "theme": "light",
+    "sizes": {
+      "density": "default",
+      "spacing": "default",
+      "corner": "default"
+    }
   },
   {
     "id": "inj_init_schema",
@@ -204,7 +251,27 @@
     "y": 210,
     "wires": [
       [
-        "fn_upsert_device"
+        "fn_upsert_device",
+        "fn_histogram"
+      ]
+    ]
+  },
+  {
+    "id": "fn_histogram",
+    "type": "function",
+    "z": "tab_poc_base_pg",
+    "name": "Update activity histogram",
+    "func": "const now = Date.now();\nconst bucketMs = 60 * 1000;\nconst windowMinutes = 60;\nconst windowMs = windowMinutes * bucketMs;\n\nconst bucketKey = Math.floor(now / bucketMs) * bucketMs;\nconst buckets = flow.get('poc_hist') || {};\n\nbuckets[bucketKey] = (buckets[bucketKey] || 0) + 1;\n\nObject.keys(buckets).forEach((key) => {\n  if (now - Number(key) > windowMs) {\n    delete buckets[key];\n  }\n});\n\nconst keys = Object.keys(buckets)\n  .map(Number)\n  .sort((a, b) => a - b);\n\nconst labels = keys.map((ts) => new Date(ts).toISOString().slice(11, 16));\nconst data = keys.map((ts) => buckets[ts]);\n\nflow.set('poc_hist', buckets);\n\nmsg.payload = [\n  { series: ['events'], data: [data], labels }\n];\n\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 980,
+    "y": 280,
+    "wires": [
+      [
+        "ui_chart_activity"
       ]
     ]
   },
@@ -250,7 +317,7 @@
     "type": "function",
     "z": "tab_poc_base_pg",
     "name": "Build INSERT (poc.telemetry)",
-    "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.telemetry (device_id, ts, metrics, raw, source_topic)\n  SELECT id, $1, $2::jsonb, $3::jsonb, $4\n  FROM poc.devices\n  WHERE network = $5 AND external_id = $6;\n`;\nmsg.params = [p.ts, JSON.stringify(p.metrics || {}), JSON.stringify(p.raw || {}), p.topic, p.source, p.deviceId];\n\nconst key = `${p.source}:${p.deviceId}`;\nconst cache = flow.get('poc_last') || {};\ncache[key] = p;\nflow.set('poc_last', cache);\n\nreturn msg;\n",
+    "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.telemetry (device_id, ts, metrics, raw, source_topic)\n  SELECT id, $1, $2::jsonb, $3::jsonb, $4\n  FROM poc.devices\n  WHERE network = $5 AND external_id = $6;\n`;\nmsg.params = [p.ts, JSON.stringify(p.metrics || {}), JSON.stringify(p.raw || {}), p.topic, p.source, p.deviceId];\n\nreturn msg;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -318,76 +385,62 @@
     "wires": []
   },
   {
-    "id": "http_in_last_pg",
-    "type": "http in",
+    "id": "ui_chart_activity",
+    "type": "ui-chart",
     "z": "tab_poc_base_pg",
-    "name": "GET /poc/last",
-    "url": "/poc/last",
-    "method": "get",
-    "upload": false,
-    "swaggerDoc": "",
-    "x": 170,
-    "y": 360,
+    "name": "Activity histogram",
+    "group": "ui_group_activity",
+    "order": 1,
+    "width": 12,
+    "height": 6,
+    "label": "Activity per minute (last hour)",
+    "chartType": "bar",
+    "legend": "false",
+    "x": 1240,
+    "y": 280,
+    "wires": [
+      [],
+      []
+    ]
+  },
+  {
+    "id": "ui_btn_z_on",
+    "type": "ui-button",
+    "z": "tab_poc_base_pg",
+    "name": "Zigbee plug ON (example)",
+    "group": "ui_group_controls",
+    "order": 1,
+    "width": 6,
+    "height": 1,
+    "label": "Zigbee plug ON (example)",
+    "tooltip": "",
+    "color": "#1f4b99",
+    "bgcolor": "#dce6f8",
+    "icon": "power",
+    "payload": "",
+    "payloadType": "str",
+    "topic": "",
+    "x": 220,
+    "y": 440,
     "wires": [
       [
-        "fn_http_last_pg"
+        "fn_cmd_z_on"
       ]
     ]
   },
   {
-    "id": "fn_http_last_pg",
+    "id": "fn_cmd_z_on",
     "type": "function",
     "z": "tab_poc_base_pg",
-    "name": "Return cache",
-    "func": "const cache = flow.get('poc_last') || {};\nmsg.payload = { ts: new Date().toISOString(), count: Object.keys(cache).length, items: cache };\nreturn msg;",
+    "name": "Build Zigbee ON command",
+    "func": "msg.topic = 'zigbee2mqtt/z_plug_nous_a1z/set';\nmsg.payload = { state: 'ON' };\nreturn msg;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 420,
-    "y": 360,
-    "wires": [
-      [
-        "http_resp_last_pg"
-      ]
-    ]
-  },
-  {
-    "id": "http_resp_last_pg",
-    "type": "http response",
-    "z": "tab_poc_base_pg",
-    "name": "",
-    "statusCode": "",
-    "headers": {},
-    "x": 670,
-    "y": 360,
-    "wires": []
-  },
-  {
-    "id": "inj_z_on_pg",
-    "type": "inject",
-    "z": "tab_poc_base_pg",
-    "name": "Zigbee plug ON (example)",
-    "props": [
-      {
-        "p": "topic",
-        "vt": "str"
-      },
-      {
-        "p": "payload",
-        "vt": "json"
-      }
-    ],
-    "topic": "zigbee2mqtt/z_plug_nous_a1z/set",
-    "payload": "{\"state\":\"ON\"}",
-    "payloadType": "json",
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "x": 220,
-    "y": 460,
+    "x": 520,
+    "y": 440,
     "wires": [
       [
         "mqtt_out_cmd_pg"
@@ -395,29 +448,43 @@
     ]
   },
   {
-    "id": "inj_l_on_pg",
-    "type": "inject",
+    "id": "ui_btn_l_on",
+    "type": "ui-button",
     "z": "tab_poc_base_pg",
     "name": "LoRa relay ON (example)",
-    "props": [
-      {
-        "p": "topic",
-        "vt": "str"
-      },
-      {
-        "p": "payload",
-        "vt": "json"
-      }
-    ],
-    "topic": "application/1/device/a1a2a3a4a5a6a7a8/command/down",
-    "payload": "{\"fPort\":85,\"confirmed\":true,\"data\":\"AQ==\"}",
-    "payloadType": "json",
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "x": 230,
-    "y": 520,
+    "group": "ui_group_controls",
+    "order": 2,
+    "width": 6,
+    "height": 1,
+    "label": "LoRa relay ON (example)",
+    "tooltip": "",
+    "color": "#1f4b99",
+    "bgcolor": "#dce6f8",
+    "icon": "power",
+    "payload": "",
+    "payloadType": "str",
+    "topic": "",
+    "x": 220,
+    "y": 500,
+    "wires": [
+      [
+        "fn_cmd_l_on"
+      ]
+    ]
+  },
+  {
+    "id": "fn_cmd_l_on",
+    "type": "function",
+    "z": "tab_poc_base_pg",
+    "name": "Build LoRa ON command",
+    "func": "msg.topic = 'application/1/device/a1a2a3a4a5a6a7a8/command/down';\nmsg.payload = { fPort: 85, confirmed: true, data: 'AQ==' };\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 520,
+    "y": 500,
     "wires": [
       [
         "mqtt_out_cmd_pg"
@@ -438,8 +505,8 @@
     "correl": "",
     "expiry": "",
     "broker": "bkr_mqtt_pg",
-    "x": 560,
-    "y": 490,
+    "x": 840,
+    "y": 470,
     "wires": []
   }
 ]
