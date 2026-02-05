@@ -34,9 +34,13 @@ The Node-RED `stack/nodered/flows.json` file includes a base ingestion flow that
 - Subscribes to `zigbee2mqtt/#` and `application/+/device/+/event/#`.
 - Normalizes messages into a single envelope.
 - Upserts `poc.devices` and inserts `poc.telemetry` rows.
-- Builds a FlowFuse Dashboard page with:
-  - A histogram of all activity (events per minute for the last hour).
-  - Buttons that publish the example Zigbee and LoRaWAN commands.
+- Builds FlowFuse Dashboard pages with:
+  - **PoC activity** charts (live, record, and complete views).
+  - **All Devices**: a list of all devices that have sent data.
+  - **Actuators**: toggle buttons for supported actuators and a dedicated status section.
+  - **Event Sensors**: last 5 status changes per event sensor.
+  - **Periodic Sensors**: per-device time-series charts with range and bucket selectors.
+  - **Battery & Status**: latest battery levels with color coding and status warnings.
 
 Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
 
