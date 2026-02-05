@@ -1,512 +1,1058 @@
 [
-  {
-    "id": "tab_poc_base_pg",
-    "type": "tab",
-    "label": "PoC MQTT PostgreSQL + Dashboard",
-    "disabled": false,
-    "info": "Ingest Zigbee2MQTT + ChirpStack events, normalize, upsert the device registry, insert telemetry into Postgres, and drive a FlowFuse Dashboard histogram + control buttons."
-  },
-  {
-    "id": "bkr_mqtt_pg",
-    "type": "mqtt-broker",
-    "name": "Mosquitto (edit me)",
-    "broker": "mosquitto",
-    "port": "1883",
-    "clientid": "nodered-poc-pg",
-    "autoConnect": true,
-    "usetls": false,
-    "protocolVersion": "4",
-    "keepalive": "60",
-    "cleansession": true,
-    "birthTopic": "",
-    "birthQos": "0",
-    "birthPayload": "",
-    "closeTopic": "",
-    "closeQos": "0",
-    "closePayload": "",
-    "willTopic": "",
-    "willQos": "0",
-    "willPayload": "",
-    "sessionExpiry": "",
-    "user": "admin",
-    "password": "CHANGE_ME"
-  },
-  {
-    "id": "pg_cfg_1",
-    "type": "postgreSQLConfig",
-    "name": "postgres (edit me)",
-    "host": "postgres",
-    "hostFieldType": "str",
-    "port": "5432",
-    "portFieldType": "num",
-    "database": "poc_nodered",
-    "databaseFieldType": "str",
-    "ssl": "false",
-    "sslFieldType": "bool",
-    "max": "10",
-    "maxFieldType": "num",
-    "idle": "1000",
-    "idleFieldType": "num",
-    "connectionTimeout": "10000",
-    "connectionTimeoutFieldType": "num",
-    "user": "nodered",
-    "userFieldType": "str",
-    "password": "CHANGE_ME",
-    "passwordFieldType": "str"
-  },
-  {
-    "id": "ui_base_poc",
-    "type": "ui-base",
-    "name": "PoC Dashboard",
-    "theme": "ui_theme_poc",
-    "site": ""
-  },
-  {
-    "id": "ui_page_poc",
-    "type": "ui-page",
-    "name": "PoC",
-    "ui": "ui_base_poc",
-    "path": "/ui/poc",
-    "icon": "dashboard",
-    "order": 1
-  },
-  {
-    "id": "ui_group_activity",
-    "type": "ui-group",
-    "name": "Activity",
-    "page": "ui_page_poc",
-    "order": 1,
-    "width": 12,
-    "collapse": false
-  },
-  {
-    "id": "ui_group_controls",
-    "type": "ui-group",
-    "name": "Controls",
-    "page": "ui_page_poc",
-    "order": 2,
-    "width": 12,
-    "collapse": false
-  },
-  {
-    "id": "ui_theme_poc",
-    "type": "ui-theme",
-    "name": "PoC Theme",
-    "theme": "light",
-    "sizes": {
-      "density": "default",
-      "spacing": "default",
-      "corner": "default"
+    {
+        "id": "8350c63ee921963f",
+        "type": "tab",
+        "label": "PoC MQTT PostgreSQL + Dashboard",
+        "disabled": false,
+        "info": "Ingest Zigbee2MQTT + ChirpStack events, normalize, upsert the device registry, insert telemetry into Postgres, and drive a FlowFuse Dashboard histogram + control buttons."
+    },
+    {
+        "id": "9e9b66153006b7f2",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Init DB schema (run once)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 80,
+        "wires": [
+            [
+                "65aae45e271610b6"
+            ]
+        ]
+    },
+    {
+        "id": "65aae45e271610b6",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Create tables (idempotent)",
+        "query": "CREATE SCHEMA IF NOT EXISTS poc;\n\nCREATE TABLE IF NOT EXISTS poc.devices (\n  id BIGSERIAL PRIMARY KEY,\n  network TEXT NOT NULL CHECK (network IN ('zigbee','lorawan')),\n  external_id TEXT NOT NULL,\n  display_name TEXT,\n  meta JSONB DEFAULT '{}'::jsonb,\n  first_seen_at TIMESTAMPTZ DEFAULT now(),\n  last_seen_at TIMESTAMPTZ\n);\n\nCREATE UNIQUE INDEX IF NOT EXISTS devices_unique ON poc.devices(network, external_id);\n\nCREATE TABLE IF NOT EXISTS poc.telemetry (\n  id BIGSERIAL PRIMARY KEY,\n  device_id BIGINT REFERENCES poc.devices(id) ON DELETE CASCADE,\n  ts TIMESTAMPTZ NOT NULL DEFAULT now(),\n  metrics JSONB NOT NULL DEFAULT '{}'::jsonb,\n  raw JSONB NOT NULL DEFAULT '{}'::jsonb,\n  source_topic TEXT\n);\n\nCREATE INDEX IF NOT EXISTS telemetry_device_ts_idx ON poc.telemetry(device_id, ts DESC);\n\nCREATE TABLE IF NOT EXISTS poc.commands (\n  id BIGSERIAL PRIMARY KEY,\n  network TEXT NOT NULL CHECK (network IN ('zigbee','lorawan')),\n  device_id BIGINT REFERENCES poc.devices(id) ON DELETE SET NULL,\n  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\n  command JSONB NOT NULL DEFAULT '{}'::jsonb,\n  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','transmitted','confirmed','observed','failed')),\n  status_detail TEXT\n);\n\nCREATE OR REPLACE VIEW poc.latest_telemetry AS\nSELECT DISTINCT ON (device_id)\n  device_id,\n  ts,\n  metrics,\n  raw,\n  source_topic\nFROM poc.telemetry\nORDER BY device_id, ts DESC;\n",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "10",
+        "outputs": 1,
+        "x": 520,
+        "y": 80,
+        "wires": [
+            [
+                "c0df0f024a68e542"
+            ]
+        ]
+    },
+    {
+        "id": "c0df0f024a68e542",
+        "type": "debug",
+        "z": "8350c63ee921963f",
+        "name": "DB init result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "pgsql.command",
+        "statusType": "msg",
+        "x": 770,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "77fd592477b6cdab",
+        "type": "mqtt in",
+        "z": "8350c63ee921963f",
+        "name": "MQTT In (Zigbee2MQTT)",
+        "topic": "zigbee2mqtt/#",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "bkr_mqtt_pg",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 180,
+        "wires": [
+            [
+                "a6fe0b1eaf258827"
+            ]
+        ]
+    },
+    {
+        "id": "e9426fd5c4f32e2c",
+        "type": "mqtt in",
+        "z": "8350c63ee921963f",
+        "name": "MQTT In (ChirpStack events)",
+        "topic": "application/+/device/+/event/#",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "bkr_mqtt_pg",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
+        "y": 240,
+        "wires": [
+            [
+                "1ed69a94c44e02a0"
+            ]
+        ]
+    },
+    {
+        "id": "a6fe0b1eaf258827",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Parse JSON (Zigbee, tolerant)",
+        "func": "const p = msg.payload;\nif (typeof p === 'string') {\n  const t = p.trim();\n  if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {\n    try { msg.payload = JSON.parse(t); } catch (err) {}\n  }\n}\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 180,
+        "wires": [
+            [
+                "40d558481cad3db6"
+            ]
+        ]
+    },
+    {
+        "id": "1ed69a94c44e02a0",
+        "type": "json",
+        "z": "8350c63ee921963f",
+        "name": "JSON parse (LoRa)",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 430,
+        "y": 240,
+        "wires": [
+            [
+                "40d558481cad3db6"
+            ]
+        ]
+    },
+    {
+        "id": "40d558481cad3db6",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Normalize msg.poc (envelope)",
+        "func": "function isoNow() { return new Date().toISOString(); }\nfunction asIso(value) {\n  if (!value) return isoNow();\n  const parsed = Date.parse(value);\n  return Number.isNaN(parsed) ? isoNow() : new Date(parsed).toISOString();\n}\n\nconst topic = msg.topic || '';\nconst payload = (typeof msg.payload === 'object' && msg.payload) ? msg.payload : { raw: msg.payload };\nlet out = {\n  source: 'unknown',\n  deviceId: 'unknown',\n  eventType: 'unknown',\n  ts: isoNow(),\n  topic,\n  metrics: {},\n  raw: payload\n};\n\nif (topic.startsWith('zigbee2mqtt/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 2 && parts[1] !== 'bridge') {\n    out.source = 'zigbee';\n    out.deviceId = parts[1];\n    out.eventType = 'state';\n    out.metrics = payload;\n    out.ts = asIso(payload.last_seen);\n  }\n}\n\nif (topic.startsWith('application/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 6 && parts[2] === 'device' && parts[4] === 'event') {\n    out.source = 'lorawan';\n    out.deviceId = parts[3];\n    out.eventType = parts[5];\n    out.metrics = payload;\n    out.ts = asIso(payload.time);\n  }\n}\n\nif (out.source === 'unknown') { return null; }\nmsg.poc = out;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 210,
+        "wires": [
+            [
+                "281e164c860e96ee",
+                "cfdf5de51b5addff"
+            ]
+        ]
+    },
+    {
+        "id": "cfdf5de51b5addff",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Update activity histogram",
+        "func": "// Count events per minute and emit a single point when the minute changes.\nconst now = Date.now();\nconst bucketMs = 60 * 1000;\nconst bucket = Math.floor(now / bucketMs) * bucketMs;\n\nconst state = flow.get(\"hist_state\") || { bucket: null, count: 0 };\n\nif (state.bucket === null) {\n  state.bucket = bucket;\n}\n\n// Same minute → accumulate\nif (bucket === state.bucket) {\n  state.count += 1;\n  flow.set(\"hist_state\", state);\n  return null; // don't spam the chart\n}\n\n// Minute changed → emit previous minute count as one point\nmsg.topic = \"events_per_min\";     // series name\nmsg.payload = state.count;        // numeric value\nmsg.timestamp = state.bucket;     // X value for timescale (ms since epoch)\n\n// reset for new bucket\nstate.bucket = bucket;\nstate.count = 1;\nflow.set(\"hist_state\", state);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 980,
+        "y": 280,
+        "wires": [
+            [
+                "baa340c8c171b714"
+            ]
+        ]
+    },
+    {
+        "id": "2f98b1d0b7c24c2f",
+        "type": "ui-dropdown",
+        "z": "8350c63ee921963f",
+        "group": "42c0c2f1b07f4b06",
+        "name": "Activity source",
+        "label": "Source",
+        "tooltip": "",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "passthru": true,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "Both",
+                "value": "both",
+                "type": "str"
+            },
+            {
+                "label": "Zigbee",
+                "value": "zigbee",
+                "type": "str"
+            },
+            {
+                "label": "LoRaWAN",
+                "value": "lorawan",
+                "type": "str"
+            }
+        ],
+        "payload": "both",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 210,
+        "y": 310,
+        "wires": [
+            [
+                "f5bb859ed1b03d1f"
+            ]
+        ]
+    },
+    {
+        "id": "f5bb859ed1b03d1f",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Set activity source",
+        "func": "const source = msg.payload;\nif (source) {\n  flow.set('activity_source', source);\n}\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 310,
+        "wires": [
+            [
+                "b8a7f6e5d4c3b2a1"
+            ]
+        ]
+    },
+    {
+        "id": "f4f7c4a2c8d3d6c1",
+        "type": "ui-dropdown",
+        "z": "8350c63ee921963f",
+        "group": "42c0c2f1b07f4b06",
+        "name": "Activity range",
+        "label": "Range",
+        "tooltip": "",
+        "order": 3,
+        "width": 6,
+        "height": 1,
+        "passthru": true,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "Last 1 hour",
+                "value": "1h",
+                "type": "str"
+            },
+            {
+                "label": "Last 24 hours",
+                "value": "24h",
+                "type": "str"
+            },
+            {
+                "label": "Last 7 days",
+                "value": "7d",
+                "type": "str"
+            }
+        ],
+        "payload": "1h",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 210,
+        "y": 350,
+        "wires": [
+            [
+                "b5f6c3d1e2a4f7b8"
+            ]
+        ]
+    },
+    {
+        "id": "b5f6c3d1e2a4f7b8",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Set activity range",
+        "func": "const range = msg.payload;\nif (range) {\n  flow.set('activity_range', range);\n}\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 350,
+        "wires": [
+            [
+                "b8a7f6e5d4c3b2a1"
+            ]
+        ]
+    },
+    {
+        "id": "d7b2c5a1e4f8b3c6",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Auto refresh activity",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 430,
+        "wires": [
+            [
+                "b8a7f6e5d4c3b2a1"
+            ]
+        ]
+    },
+    {
+        "id": "b8a7f6e5d4c3b2a1",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build complete query",
+        "func": "const rangeMap = {\n  '1h': '1 hour',\n  '24h': '24 hours',\n  '7d': '7 days'\n};\n\nconst source = flow.get('activity_source') || 'both';\nconst range = flow.get('activity_range') || '1h';\nconst interval = rangeMap[range] || '1 hour';\n\nconst params = [];\nlet where = `t.ts >= now() - interval '${interval}'`;\n\nif (source !== 'both') {\n  params.push(source);\n  where += ` AND d.network = $${params.length}`;\n}\n\nmsg.query = `SELECT date_trunc('minute', t.ts) AS bucket,\n       count(*) AS events\nFROM poc.telemetry t\nJOIN poc.devices d ON d.id = t.device_id\nWHERE ${where}\nGROUP BY bucket\nORDER BY bucket;`;\nmsg.params = params;\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 460,
+        "wires": [
+            [
+                "d2b5039a3ad0b0e9"
+            ]
+        ]
+    },
+    {
+        "id": "7b41f1c1fb4a4e90",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Refresh activity (record)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 470,
+        "wires": [
+            [
+                "b6c0b4e6a80c63d1"
+            ]
+        ]
+    },
+    {
+        "id": "b6c0b4e6a80c63d1",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query activity (record)",
+        "query": "SELECT date_trunc('minute', ts) AS bucket,\n       count(*) AS events\nFROM poc.telemetry\nWHERE ts >= now() - interval '1 hour'\nGROUP BY bucket\nORDER BY bucket;",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "100",
+        "outputs": 1,
+        "x": 970,
+        "y": 420,
+        "wires": [
+            [
+                "6f18c6788b6d7dd4"
+            ]
+        ]
+    },
+    {
+        "id": "6f18c6788b6d7dd4",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build chart points (record)",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst points = rows.map((row) => {\n  const x = new Date(row.bucket).getTime();\n  return { x, y: Number(row.events || 0) };\n});\n\nmsg.topic = 'events_per_min';\nmsg.payload = points;\nmsg.action = 'replace';\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 420,
+        "wires": [
+            [
+                "9d4e7b4e4a7a7a53"
+            ]
+        ]
+    },
+    {
+        "id": "d2b5039a3ad0b0e9",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query activity (complete)",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1000",
+        "outputs": 1,
+        "x": 970,
+        "y": 460,
+        "wires": [
+            [
+                "55dfac0a4fe13584"
+            ]
+        ]
+    },
+    {
+        "id": "55dfac0a4fe13584",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build chart points (complete)",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst points = rows.map((row) => {\n  const x = new Date(row.bucket).getTime();\n  return { x, y: Number(row.events || 0) };\n});\n\nmsg.topic = 'events_per_min';\nmsg.payload = points;\nmsg.action = 'replace';\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 460,
+        "wires": [
+            [
+                "f9f0a5b0a5f48a9c"
+            ]
+        ]
+    },
+    {
+        "id": "281e164c860e96ee",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build UPSERT (poc.devices)",
+        "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.devices (network, external_id, display_name, meta, first_seen_at, last_seen_at)\n  VALUES ($1, $2, $3, $4::jsonb, now(), $5)\n  ON CONFLICT (network, external_id)\n  DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at,\n                meta = poc.devices.meta || EXCLUDED.meta;\n`;\nconst meta = {\n  last_topic: p.topic,\n  last_event_type: p.eventType,\n  last_keys: Object.keys(p.metrics || {})\n};\nmsg.params = [p.source, p.deviceId, p.deviceId, JSON.stringify(meta), p.ts];\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 980,
+        "y": 210,
+        "wires": [
+            [
+                "7c0990bcbebdeaad"
+            ]
+        ]
+    },
+    {
+        "id": "7c0990bcbebdeaad",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "UPSERT poc.devices",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1250,
+        "y": 210,
+        "wires": [
+            [
+                "014f2b8fe99b97fe"
+            ]
+        ]
+    },
+    {
+        "id": "014f2b8fe99b97fe",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build INSERT (poc.telemetry)",
+        "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.telemetry (device_id, ts, metrics, raw, source_topic)\n  SELECT id, $1, $2::jsonb, $3::jsonb, $4\n  FROM poc.devices\n  WHERE network = $5 AND external_id = $6;\n`;\nmsg.params = [p.ts, JSON.stringify(p.metrics || {}), JSON.stringify(p.raw || {}), p.topic, p.source, p.deviceId];\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1540,
+        "y": 210,
+        "wires": [
+            [
+                "1e28fb88cb6b4b16",
+                "af4eab925dd532d1"
+            ]
+        ]
+    },
+    {
+        "id": "1e28fb88cb6b4b16",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "INSERT poc.telemetry",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1800,
+        "y": 210,
+        "wires": [
+            [
+                "01541a7a87ea3f4d"
+            ]
+        ]
+    },
+    {
+        "id": "01541a7a87ea3f4d",
+        "type": "debug",
+        "z": "8350c63ee921963f",
+        "name": "DB insert result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "pgsql.command",
+        "statusType": "msg",
+        "x": 2000,
+        "y": 210,
+        "wires": []
+    },
+    {
+        "id": "af4eab925dd532d1",
+        "type": "debug",
+        "z": "8350c63ee921963f",
+        "name": "Debug (envelope)",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "poc",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1790,
+        "y": 270,
+        "wires": []
+    },
+    {
+        "id": "baa340c8c171b714",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "73686f037df2c0ae",
+        "name": "Activity histogram",
+        "label": "Activity per minute (last hour)",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "timestamp",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "0",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "x": 1240,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9d4e7b4e4a7a7a53",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "d0f0b16df9a0491b",
+        "name": "Activity histogram (record)",
+        "label": "Recorded activity per minute",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "x",
+        "xAxisPropertyType": "property",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "y",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "60",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "action": "replace",
+        "x": 1150,
+        "y": 330,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f9f0a5b0a5f48a9c",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "42c0c2f1b07f4b06",
+        "name": "Activity histogram (complete)",
+        "label": "Complete activity per minute",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "x",
+        "xAxisPropertyType": "property",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "y",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "60",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "action": "replace",
+        "x": 1180,
+        "y": 390,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "2d3f68394b4dd971",
+        "type": "ui-button",
+        "z": "8350c63ee921963f",
+        "group": "b5998ef30a2bbe6b",
+        "name": "Zigbee plug ON (example)",
+        "label": "Zigbee plug ON (example)",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "#1f4b99",
+        "bgcolor": "#dce6f8",
+        "className": "",
+        "icon": "power",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 220,
+        "y": 440,
+        "wires": [
+            [
+                "4ab602f9c0ea095d"
+            ]
+        ]
+    },
+    {
+        "id": "4ab602f9c0ea095d",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build Zigbee ON command",
+        "func": "msg.topic = 'zigbee2mqtt/z_plug_nous_a1z/set';\nmsg.payload = { state: 'ON' };\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 440,
+        "wires": [
+            [
+                "6934769a35a4061a"
+            ]
+        ]
+    },
+    {
+        "id": "bddd6410a1887081",
+        "type": "ui-button",
+        "z": "8350c63ee921963f",
+        "group": "b5998ef30a2bbe6b",
+        "name": "LoRa relay ON (example)",
+        "label": "LoRa relay ON (example)",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "#1f4b99",
+        "bgcolor": "#dce6f8",
+        "className": "",
+        "icon": "power",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 220,
+        "y": 500,
+        "wires": [
+            [
+                "e1e11c556b522e44"
+            ]
+        ]
+    },
+    {
+        "id": "e1e11c556b522e44",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build LoRa ON command",
+        "func": "msg.topic = 'application/1/device/a1a2a3a4a5a6a7a8/command/down';\nmsg.payload = { fPort: 85, confirmed: true, data: 'AQ==' };\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 500,
+        "wires": [
+            [
+                "6934769a35a4061a"
+            ]
+        ]
+    },
+    {
+        "id": "6934769a35a4061a",
+        "type": "mqtt out",
+        "z": "8350c63ee921963f",
+        "name": "MQTT Out (commands)",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "bkr_mqtt_pg",
+        "x": 840,
+        "y": 470,
+        "wires": []
+    },
+    {
+        "id": "pg_cfg_1",
+        "type": "postgreSQLConfig",
+        "name": "postgres (edit me)",
+        "host": "postgres",
+        "hostFieldType": "str",
+        "port": "5432",
+        "portFieldType": "num",
+        "database": "poc_nodered",
+        "databaseFieldType": "str",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "",
+        "applicationNameType": "str",
+        "max": "10",
+        "maxFieldType": "num",
+        "idle": "1000",
+        "idleFieldType": "num",
+        "connectionTimeout": "10000",
+        "connectionTimeoutFieldType": "num",
+        "user": "nodered",
+        "userFieldType": "str",
+        "password": "pg_nr_password",
+        "passwordFieldType": "str"
+    },
+    {
+        "id": "bkr_mqtt_pg",
+        "type": "mqtt-broker",
+        "name": "Mosquitto (edit me)",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-poc-pg",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "73686f037df2c0ae",
+        "type": "ui-group",
+        "name": "Activity (Live)",
+        "page": "a3a82f7da98f3876",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "d0f0b16df9a0491b",
+        "type": "ui-group",
+        "name": "Activity (Record)",
+        "page": "a3a82f7da98f3876",
+        "width": "12",
+        "height": "",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "42c0c2f1b07f4b06",
+        "type": "ui-group",
+        "name": "Activity (Complete)",
+        "page": "a3a82f7da98f3876",
+        "width": "12",
+        "height": "",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "b5998ef30a2bbe6b",
+        "type": "ui-group",
+        "name": "Controls",
+        "page": "a3a82f7da98f3876",
+        "width": "12",
+        "height": "",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "a3a82f7da98f3876",
+        "type": "ui-page",
+        "name": "PoC",
+        "ui": "ui_base_2",
+        "path": "/poc",
+        "icon": "dashboard",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 2,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "ui_base_2",
+        "type": "ui-base",
+        "name": "PoC Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-control",
+            "ui-notification"
+        ],
+        "showPathInSidebar": true,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "fixed",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": "5",
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "ca605794700c8eb2",
+        "type": "ui-theme",
+        "name": "PoC Theme",
+        "sizes": {
+            "density": "default",
+            "spacing": "default",
+            "corner": "default"
+        }
     }
-  },
-  {
-    "id": "inj_init_schema",
-    "type": "inject",
-    "z": "tab_poc_base_pg",
-    "name": "Init DB schema (run once)",
-    "props": [
-      {
-        "p": "payload"
-      },
-      {
-        "p": "topic",
-        "vt": "str"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "payloadType": "date",
-    "x": 190,
-    "y": 80,
-    "wires": [
-      [
-        "pg_init_schema"
-      ]
-    ]
-  },
-  {
-    "id": "pg_init_schema",
-    "type": "postgresql",
-    "z": "tab_poc_base_pg",
-    "name": "Create tables (idempotent)",
-    "query": "CREATE SCHEMA IF NOT EXISTS poc;\n\nCREATE TABLE IF NOT EXISTS poc.devices (\n  id BIGSERIAL PRIMARY KEY,\n  network TEXT NOT NULL CHECK (network IN ('zigbee','lorawan')),\n  external_id TEXT NOT NULL,\n  display_name TEXT,\n  meta JSONB DEFAULT '{}'::jsonb,\n  first_seen_at TIMESTAMPTZ DEFAULT now(),\n  last_seen_at TIMESTAMPTZ\n);\n\nCREATE UNIQUE INDEX IF NOT EXISTS devices_unique ON poc.devices(network, external_id);\n\nCREATE TABLE IF NOT EXISTS poc.telemetry (\n  id BIGSERIAL PRIMARY KEY,\n  device_id BIGINT REFERENCES poc.devices(id) ON DELETE CASCADE,\n  ts TIMESTAMPTZ NOT NULL DEFAULT now(),\n  metrics JSONB NOT NULL DEFAULT '{}'::jsonb,\n  raw JSONB NOT NULL DEFAULT '{}'::jsonb,\n  source_topic TEXT\n);\n\nCREATE INDEX IF NOT EXISTS telemetry_device_ts_idx ON poc.telemetry(device_id, ts DESC);\n\nCREATE TABLE IF NOT EXISTS poc.commands (\n  id BIGSERIAL PRIMARY KEY,\n  network TEXT NOT NULL CHECK (network IN ('zigbee','lorawan')),\n  device_id BIGINT REFERENCES poc.devices(id) ON DELETE SET NULL,\n  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\n  command JSONB NOT NULL DEFAULT '{}'::jsonb,\n  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','transmitted','confirmed','observed','failed')),\n  status_detail TEXT\n);\n\nCREATE OR REPLACE VIEW poc.latest_telemetry AS\nSELECT DISTINCT ON (device_id)\n  device_id,\n  ts,\n  metrics,\n  raw,\n  source_topic\nFROM poc.telemetry\nORDER BY device_id, ts DESC;\n",
-    "postgreSQLConfig": "pg_cfg_1",
-    "split": false,
-    "rowsPerMsg": "10",
-    "outputs": 1,
-    "x": 520,
-    "y": 80,
-    "wires": [
-      [
-        "dbg_init"
-      ]
-    ]
-  },
-  {
-    "id": "dbg_init",
-    "type": "debug",
-    "z": "tab_poc_base_pg",
-    "name": "DB init result",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": true,
-    "complete": "true",
-    "targetType": "full",
-    "statusVal": "pgsql.command",
-    "statusType": "msg",
-    "x": 770,
-    "y": 80,
-    "wires": []
-  },
-  {
-    "id": "mqtt_in_z_pg",
-    "type": "mqtt in",
-    "z": "tab_poc_base_pg",
-    "name": "MQTT In (Zigbee2MQTT)",
-    "topic": "zigbee2mqtt/#",
-    "qos": "0",
-    "datatype": "auto",
-    "broker": "bkr_mqtt_pg",
-    "nl": false,
-    "rap": true,
-    "rh": 0,
-    "inputs": 0,
-    "x": 180,
-    "y": 180,
-    "wires": [
-      [
-        "json_z_pg"
-      ]
-    ]
-  },
-  {
-    "id": "mqtt_in_l_pg",
-    "type": "mqtt in",
-    "z": "tab_poc_base_pg",
-    "name": "MQTT In (ChirpStack events)",
-    "topic": "application/+/device/+/event/#",
-    "qos": "0",
-    "datatype": "auto",
-    "broker": "bkr_mqtt_pg",
-    "nl": false,
-    "rap": true,
-    "rh": 0,
-    "inputs": 0,
-    "x": 200,
-    "y": 240,
-    "wires": [
-      [
-        "json_l_pg"
-      ]
-    ]
-  },
-  {
-    "id": "json_z_pg",
-    "type": "json",
-    "z": "tab_poc_base_pg",
-    "name": "JSON parse (Zigbee)",
-    "property": "payload",
-    "action": "obj",
-    "pretty": false,
-    "x": 430,
-    "y": 180,
-    "wires": [
-      [
-        "fn_norm_pg"
-      ]
-    ]
-  },
-  {
-    "id": "json_l_pg",
-    "type": "json",
-    "z": "tab_poc_base_pg",
-    "name": "JSON parse (LoRa)",
-    "property": "payload",
-    "action": "obj",
-    "pretty": false,
-    "x": 430,
-    "y": 240,
-    "wires": [
-      [
-        "fn_norm_pg"
-      ]
-    ]
-  },
-  {
-    "id": "fn_norm_pg",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Normalize msg.poc (envelope)",
-    "func": "function isoNow() { return new Date().toISOString(); }\nfunction asIso(value) {\n  if (!value) return isoNow();\n  const parsed = Date.parse(value);\n  return Number.isNaN(parsed) ? isoNow() : new Date(parsed).toISOString();\n}\n\nconst topic = msg.topic || '';\nconst payload = (typeof msg.payload === 'object' && msg.payload) ? msg.payload : { raw: msg.payload };\nlet out = {\n  source: 'unknown',\n  deviceId: 'unknown',\n  eventType: 'unknown',\n  ts: isoNow(),\n  topic,\n  metrics: {},\n  raw: payload\n};\n\nif (topic.startsWith('zigbee2mqtt/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 2 && parts[1] !== 'bridge') {\n    out.source = 'zigbee';\n    out.deviceId = parts[1];\n    out.eventType = 'state';\n    out.metrics = payload;\n    out.ts = asIso(payload.last_seen);\n  }\n}\n\nif (topic.startsWith('application/')) {\n  const parts = topic.split('/');\n  if (parts.length >= 6 && parts[2] === 'device' && parts[4] === 'event') {\n    out.source = 'lorawan';\n    out.deviceId = parts[3];\n    out.eventType = parts[5];\n    out.metrics = payload;\n    out.ts = asIso(payload.time);\n  }\n}\n\nif (out.source === 'unknown') { return null; }\nmsg.poc = out;\nreturn msg;",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 690,
-    "y": 210,
-    "wires": [
-      [
-        "fn_upsert_device",
-        "fn_histogram"
-      ]
-    ]
-  },
-  {
-    "id": "fn_histogram",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Update activity histogram",
-    "func": "const now = Date.now();\nconst bucketMs = 60 * 1000;\nconst windowMinutes = 60;\nconst windowMs = windowMinutes * bucketMs;\n\nconst bucketKey = Math.floor(now / bucketMs) * bucketMs;\nconst buckets = flow.get('poc_hist') || {};\n\nbuckets[bucketKey] = (buckets[bucketKey] || 0) + 1;\n\nObject.keys(buckets).forEach((key) => {\n  if (now - Number(key) > windowMs) {\n    delete buckets[key];\n  }\n});\n\nconst keys = Object.keys(buckets)\n  .map(Number)\n  .sort((a, b) => a - b);\n\nconst labels = keys.map((ts) => new Date(ts).toISOString().slice(11, 16));\nconst data = keys.map((ts) => buckets[ts]);\n\nflow.set('poc_hist', buckets);\n\nmsg.payload = [\n  { series: ['events'], data: [data], labels }\n];\n\nreturn msg;\n",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 980,
-    "y": 280,
-    "wires": [
-      [
-        "ui_chart_activity"
-      ]
-    ]
-  },
-  {
-    "id": "fn_upsert_device",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Build UPSERT (poc.devices)",
-    "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.devices (network, external_id, display_name, meta, first_seen_at, last_seen_at)\n  VALUES ($1, $2, $3, $4::jsonb, now(), $5)\n  ON CONFLICT (network, external_id)\n  DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at,\n                meta = poc.devices.meta || EXCLUDED.meta;\n`;\nconst meta = {\n  last_topic: p.topic,\n  last_event_type: p.eventType,\n  last_keys: Object.keys(p.metrics || {})\n};\nmsg.params = [p.source, p.deviceId, p.deviceId, JSON.stringify(meta), p.ts];\nreturn msg;\n",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 980,
-    "y": 210,
-    "wires": [
-      [
-        "pg_upsert_device"
-      ]
-    ]
-  },
-  {
-    "id": "pg_upsert_device",
-    "type": "postgresql",
-    "z": "tab_poc_base_pg",
-    "name": "UPSERT poc.devices",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg_1",
-    "split": false,
-    "rowsPerMsg": "1",
-    "outputs": 1,
-    "x": 1250,
-    "y": 210,
-    "wires": [
-      [
-        "fn_insert_event"
-      ]
-    ]
-  },
-  {
-    "id": "fn_insert_event",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Build INSERT (poc.telemetry)",
-    "func": "const p = msg.poc;\nmsg.query = `\n  INSERT INTO poc.telemetry (device_id, ts, metrics, raw, source_topic)\n  SELECT id, $1, $2::jsonb, $3::jsonb, $4\n  FROM poc.devices\n  WHERE network = $5 AND external_id = $6;\n`;\nmsg.params = [p.ts, JSON.stringify(p.metrics || {}), JSON.stringify(p.raw || {}), p.topic, p.source, p.deviceId];\n\nreturn msg;\n",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 1540,
-    "y": 210,
-    "wires": [
-      [
-        "pg_insert_event",
-        "dbg_norm_pg"
-      ]
-    ]
-  },
-  {
-    "id": "pg_insert_event",
-    "type": "postgresql",
-    "z": "tab_poc_base_pg",
-    "name": "INSERT poc.telemetry",
-    "query": "",
-    "postgreSQLConfig": "pg_cfg_1",
-    "split": false,
-    "rowsPerMsg": "1",
-    "outputs": 1,
-    "x": 1800,
-    "y": 210,
-    "wires": [
-      [
-        "dbg_pg_insert"
-      ]
-    ]
-  },
-  {
-    "id": "dbg_pg_insert",
-    "type": "debug",
-    "z": "tab_poc_base_pg",
-    "name": "DB insert result",
-    "active": false,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": true,
-    "complete": "true",
-    "targetType": "full",
-    "statusVal": "pgsql.command",
-    "statusType": "msg",
-    "x": 2000,
-    "y": 210,
-    "wires": []
-  },
-  {
-    "id": "dbg_norm_pg",
-    "type": "debug",
-    "z": "tab_poc_base_pg",
-    "name": "Debug (envelope)",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "poc",
-    "targetType": "msg",
-    "statusVal": "",
-    "statusType": "auto",
-    "x": 1790,
-    "y": 270,
-    "wires": []
-  },
-  {
-    "id": "ui_chart_activity",
-    "type": "ui-chart",
-    "z": "tab_poc_base_pg",
-    "name": "Activity histogram",
-    "group": "ui_group_activity",
-    "order": 1,
-    "width": 12,
-    "height": 6,
-    "label": "Activity per minute (last hour)",
-    "chartType": "bar",
-    "legend": "false",
-    "x": 1240,
-    "y": 280,
-    "wires": [
-      [],
-      []
-    ]
-  },
-  {
-    "id": "ui_btn_z_on",
-    "type": "ui-button",
-    "z": "tab_poc_base_pg",
-    "name": "Zigbee plug ON (example)",
-    "group": "ui_group_controls",
-    "order": 1,
-    "width": 6,
-    "height": 1,
-    "label": "Zigbee plug ON (example)",
-    "tooltip": "",
-    "color": "#1f4b99",
-    "bgcolor": "#dce6f8",
-    "icon": "power",
-    "payload": "",
-    "payloadType": "str",
-    "topic": "",
-    "x": 220,
-    "y": 440,
-    "wires": [
-      [
-        "fn_cmd_z_on"
-      ]
-    ]
-  },
-  {
-    "id": "fn_cmd_z_on",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Build Zigbee ON command",
-    "func": "msg.topic = 'zigbee2mqtt/z_plug_nous_a1z/set';\nmsg.payload = { state: 'ON' };\nreturn msg;\n",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 520,
-    "y": 440,
-    "wires": [
-      [
-        "mqtt_out_cmd_pg"
-      ]
-    ]
-  },
-  {
-    "id": "ui_btn_l_on",
-    "type": "ui-button",
-    "z": "tab_poc_base_pg",
-    "name": "LoRa relay ON (example)",
-    "group": "ui_group_controls",
-    "order": 2,
-    "width": 6,
-    "height": 1,
-    "label": "LoRa relay ON (example)",
-    "tooltip": "",
-    "color": "#1f4b99",
-    "bgcolor": "#dce6f8",
-    "icon": "power",
-    "payload": "",
-    "payloadType": "str",
-    "topic": "",
-    "x": 220,
-    "y": 500,
-    "wires": [
-      [
-        "fn_cmd_l_on"
-      ]
-    ]
-  },
-  {
-    "id": "fn_cmd_l_on",
-    "type": "function",
-    "z": "tab_poc_base_pg",
-    "name": "Build LoRa ON command",
-    "func": "msg.topic = 'application/1/device/a1a2a3a4a5a6a7a8/command/down';\nmsg.payload = { fPort: 85, confirmed: true, data: 'AQ==' };\nreturn msg;\n",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 520,
-    "y": 500,
-    "wires": [
-      [
-        "mqtt_out_cmd_pg"
-      ]
-    ]
-  },
-  {
-    "id": "mqtt_out_cmd_pg",
-    "type": "mqtt out",
-    "z": "tab_poc_base_pg",
-    "name": "MQTT Out (commands)",
-    "topic": "",
-    "qos": "",
-    "retain": "",
-    "respTopic": "",
-    "contentType": "",
-    "userProps": "",
-    "correl": "",
-    "expiry": "",
-    "broker": "bkr_mqtt_pg",
-    "x": 840,
-    "y": 470,
-    "wires": []
-  }
 ]
