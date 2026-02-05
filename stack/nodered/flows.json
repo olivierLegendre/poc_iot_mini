@@ -173,7 +173,7 @@
         "type": "function",
         "z": "8350c63ee921963f",
         "name": "Update activity histogram",
-        "func": "// Count events per minute and emit a single point when the minute changes.\nconst now = Date.now();\nconst bucketMs = 60 * 1000;\nconst bucket = Math.floor(now / bucketMs) * bucketMs;\n\nconst state = flow.get(\"hist_state\") || { bucket: null, count: 0 };\n\nif (state.bucket === null) {\n  state.bucket = bucket;\n}\n\n// Same minute → accumulate\nif (bucket === state.bucket) {\n  state.count += 1;\n  flow.set(\"hist_state\", state);\n  return null; // don't spam the chart\n}\n\n// Minute changed → emit previous minute count as one point\nmsg.topic = \"events_per_min\";     // series name\nmsg.payload = state.count;        // numeric value\nmsg.timestamp = state.bucket;     // X value for timescale (ms since epoch)\n\n// reset for new bucket\nstate.bucket = bucket;\nstate.count = 1;\nflow.set(\"hist_state\", state);\n\nreturn msg;",
+        "func": "// Count events per minute and emit a single point when the minute changes.\nconst now = Date.now();\nconst bucketMs = 60 * 1000;\nconst bucket = Math.floor(now / bucketMs) * bucketMs;\n\nconst state = flow.get(\"hist_state\") || { bucket: null, count: 0 };\n\nif (state.bucket === null) {\n  state.bucket = bucket;\n}\n\n// Same minute \u2192 accumulate\nif (bucket === state.bucket) {\n  state.count += 1;\n  flow.set(\"hist_state\", state);\n  return null; // don't spam the chart\n}\n\n// Minute changed \u2192 emit previous minute count as one point\nmsg.topic = \"events_per_min\";     // series name\nmsg.payload = state.count;        // numeric value\nmsg.timestamp = state.bucket;     // X value for timescale (ms since epoch)\n\n// reset for new bucket\nstate.bucket = bucket;\nstate.count = 1;\nflow.set(\"hist_state\", state);\n\nreturn msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -1054,5 +1054,1335 @@
             "spacing": "default",
             "corner": "default"
         }
+    },
+    {
+        "id": "pg_all_devices",
+        "type": "ui-page",
+        "name": "All Devices",
+        "ui": "ui_base_2",
+        "path": "/devices",
+        "icon": "list",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 3,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "pg_actuators",
+        "type": "ui-page",
+        "name": "Actuators",
+        "ui": "ui_base_2",
+        "path": "/actuators",
+        "icon": "toggle_on",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 4,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "pg_event_sensors",
+        "type": "ui-page",
+        "name": "Event Sensors",
+        "ui": "ui_base_2",
+        "path": "/event-sensors",
+        "icon": "event",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 5,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "pg_periodic",
+        "type": "ui-page",
+        "name": "Periodic Sensors",
+        "ui": "ui_base_2",
+        "path": "/periodic-sensors",
+        "icon": "show_chart",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 6,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "pg_battery",
+        "type": "ui-page",
+        "name": "Battery & Status",
+        "ui": "ui_base_2",
+        "path": "/battery-status",
+        "icon": "battery_full",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 7,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "grp_all_devices",
+        "type": "ui-group",
+        "name": "Received devices",
+        "page": "pg_all_devices",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_actuators_controls",
+        "type": "ui-group",
+        "name": "Actuator controls",
+        "page": "pg_actuators",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_actuators_status",
+        "type": "ui-group",
+        "name": "Actuator status",
+        "page": "pg_actuators",
+        "width": "12",
+        "height": "",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_event_changes",
+        "type": "ui-group",
+        "name": "Last 5 status changes",
+        "page": "pg_event_sensors",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_periodic_filters",
+        "type": "ui-group",
+        "name": "Periodic filters",
+        "page": "pg_periodic",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_periodic_th",
+        "type": "ui-group",
+        "name": "z_th_snzb02wd",
+        "page": "pg_periodic",
+        "width": "12",
+        "height": "",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_periodic_lux",
+        "type": "ui-group",
+        "name": "z_lux_haozee",
+        "page": "pg_periodic",
+        "width": "12",
+        "height": "",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_periodic_dragino",
+        "type": "ui-group",
+        "name": "l_temp_dragino_t68dl",
+        "page": "pg_periodic",
+        "width": "12",
+        "height": "",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp_battery",
+        "type": "ui-group",
+        "name": "Battery and status",
+        "page": "pg_battery",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "tpl_all_devices",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_all_devices",
+        "name": "All devices list",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>All devices with received data</h3>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Network</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Last received</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">State/Data</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"row.device + row.network\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.device }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.network }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ fmtLocal(row.lastTs) }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.summary }}</td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1260,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tpl_actuator_status",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_actuators_status",
+        "name": "Actuator status view",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Actuator status</h3>\n    <section\n      v-for=\"item in items\"\n      :key=\"item.id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ item.id }}</strong><br/>\n      <template v-if=\"item.unavailable\">\n        Data on status not available for this device\n      </template>\n      <template v-else>\n        Last data: {{ fmtLocal(item.lastTs) }}<br/>\n        State/Data: {{ item.stateData }}\n      </template>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    items() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1260,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tpl_event_changes",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_event_changes",
+        "name": "Event sensor changes view",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Last 5 status changes per device</h3>\n\n    <section\n      v-for=\"id in deviceIds\"\n      :key=\"id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ id }}</strong>\n      <div v-if=\"!events[id] || events[id].length === 0\">No status change found yet.</div>\n      <ul v-else>\n        <li v-for=\"(e, idx) in events[id]\" :key=\"id + '-' + idx\">\n          {{ e.metricKey }}: {{ e.oldValue }} -> {{ e.newValue }} at {{ fmtLocal(e.ts) }}\n        </li>\n      </ul>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    events() {\n      const payload = this.msg?.payload;\n      return payload && typeof payload === 'object' ? payload : {};\n    },\n    deviceIds() {\n      return ['z_motion_snzb03p', 'l_contact_dragino_lds02'];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1260,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tpl_battery",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_battery",
+        "name": "Battery and status view",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Battery and status (latest telemetry)</h3>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Battery</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Last data</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Warning</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"row.device\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.device }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span\n            :style=\"{ color: 'white', background: row.batteryColor, padding: '2px 8px', borderRadius: '10px' }\"\n          >\n            {{ row.battery ?? 'n/a' }}%\n          </span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.status }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ fmtLocal(row.lastTs) }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.warning }}</td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1260,
+        "y": 980,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "btn_toggle_zigbee_plug",
+        "type": "ui-button",
+        "z": "8350c63ee921963f",
+        "group": "grp_actuators_controls",
+        "name": "Toggle z_plug_nous_a1z",
+        "label": "Toggle z_plug_nous_a1z",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "power_settings_new",
+        "iconPosition": "left",
+        "payload": "z_plug_nous_a1z",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 230,
+        "y": 180,
+        "wires": [
+            [
+                "fn_prepare_toggle"
+            ]
+        ]
+    },
+    {
+        "id": "btn_toggle_lora_plug",
+        "type": "ui-button",
+        "z": "8350c63ee921963f",
+        "group": "grp_actuators_controls",
+        "name": "Toggle l_plug_milesight_ws513",
+        "label": "Toggle l_plug_milesight_ws513",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "power_settings_new",
+        "iconPosition": "left",
+        "payload": "l_plug_milesight_ws513",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 240,
+        "y": 220,
+        "wires": [
+            [
+                "fn_prepare_toggle"
+            ]
+        ]
+    },
+    {
+        "id": "dd_periodic_range",
+        "type": "ui-dropdown",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_filters",
+        "name": "Periodic range",
+        "label": "Range",
+        "tooltip": "",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "passthru": true,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "Last 1 hour",
+                "value": "1h",
+                "type": "str"
+            }
+        ],
+        "payload": "1h",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 200,
+        "y": 560,
+        "wires": [
+            [
+                "fn_set_periodic_range"
+            ]
+        ]
+    },
+    {
+        "id": "dd_periodic_bucket",
+        "type": "ui-dropdown",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_filters",
+        "name": "Periodic bucket",
+        "label": "Bucket",
+        "tooltip": "",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "passthru": true,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "1 minute",
+                "value": "1 minute",
+                "type": "str"
+            }
+        ],
+        "payload": "1 minute",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 200,
+        "y": 600,
+        "wires": [
+            [
+                "fn_set_periodic_bucket"
+            ]
+        ]
+    },
+    {
+        "id": "chart_periodic_th",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_th",
+        "name": "Histogram z_th_snzb02wd",
+        "label": "Main metrics (time-series line)",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "timestamp",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "0",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "x": 1280,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chart_periodic_lux",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_lux",
+        "name": "Histogram z_lux_haozee",
+        "label": "Main metrics (time-series line)",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "timestamp",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "0",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "x": 1280,
+        "y": 760,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chart_periodic_dragino",
+        "type": "ui-chart",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_dragino",
+        "name": "Histogram l_temp_dragino_t68dl",
+        "label": "Main metrics (time-series line)",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "timestamp",
+        "xAxisPropertyType": "msg",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": "0",
+        "removeOlderUnit": "minute",
+        "removeOlderPoints": "",
+        "colors": [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728"
+        ],
+        "textColor": "",
+        "textColorDefault": true,
+        "gridColor": "",
+        "gridColorDefault": true,
+        "width": 12,
+        "height": 6,
+        "className": "",
+        "interpolation": "linear",
+        "x": 1280,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "inj_refresh_all_devices",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Refresh all devices",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 100,
+        "wires": [
+            [
+                "fn_q_all_devices"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_all_devices",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Query all devices",
+        "func": "msg.query = `SELECT d.network,d.external_id,d.display_name,d.last_seen_at, t.ts AS last_ts, t.metrics\nFROM poc.devices d\nLEFT JOIN poc.latest_telemetry t ON t.device_id = d.id\nORDER BY d.network, d.external_id;`;\nmsg.params = [];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 100,
+        "wires": [
+            [
+                "pg_all_devices_query"
+            ]
+        ]
+    },
+    {
+        "id": "pg_all_devices_query",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query all devices",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 650,
+        "y": 100,
+        "wires": [
+            [
+                "fn_fmt_all_devices"
+            ]
+        ]
+    },
+    {
+        "id": "fn_fmt_all_devices",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Format all devices HTML",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nmsg.payload = rows.map((r) => {\n  const metrics = r.metrics || {};\n  const summary = ['state','relay','door_open','occupancy','motion','temperature','humidity','illuminance','battery']\n    .filter((k) => metrics[k] !== undefined)\n    .map((k) => `${k}: ${metrics[k]}`)\n    .join(' | ') || 'No telemetry yet';\n\n  return {\n    device: r.display_name || r.external_id,\n    network: r.network || 'n/a',\n    lastTs: r.last_ts || r.last_seen_at || null,\n    summary\n  };\n});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 100,
+        "wires": [
+            [
+                "tpl_all_devices"
+            ]
+        ]
+    },
+    {
+        "id": "inj_refresh_actuators",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Refresh actuator status",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "3",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "fn_q_actuator_status"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_actuator_status",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Query actuator status",
+        "func": "msg.query = `SELECT d.network,d.external_id,d.display_name, t.ts, t.metrics\nFROM poc.devices d\nLEFT JOIN poc.latest_telemetry t ON t.device_id = d.id\nWHERE d.external_id IN ('z_plug_nous_a1z','l_plug_milesight_ws513')\nORDER BY d.external_id;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 260,
+        "wires": [
+            [
+                "pg_actuator_status_query"
+            ]
+        ]
+    },
+    {
+        "id": "pg_actuator_status_query",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query actuator status",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 650,
+        "y": 260,
+        "wires": [
+            [
+                "fn_fmt_actuator_status"
+            ]
+        ]
+    },
+    {
+        "id": "fn_fmt_actuator_status",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Format actuator status HTML",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst byId = new Map(rows.map((r) => [r.external_id, r]));\nconst devices = ['z_plug_nous_a1z', 'l_plug_milesight_ws513'];\n\nmsg.payload = devices.map((id) => {\n  const r = byId.get(id);\n  if (!r || !r.metrics) {\n    return {\n      id,\n      lastTs: null,\n      stateData: null,\n      unavailable: true\n    };\n  }\n\n  const m = r.metrics || {};\n  return {\n    id,\n    lastTs: r.ts || null,\n    stateData: m.state ?? m.relay ?? 'unknown',\n    unavailable: false\n  };\n});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 260,
+        "wires": [
+            [
+                "tpl_actuator_status"
+            ]
+        ]
+    },
+    {
+        "id": "fn_prepare_toggle",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Prepare actuator toggle",
+        "func": "const id = msg.payload;\nmsg.targetDevice = id;\nmsg.query = `SELECT d.network,d.external_id,t.metrics\nFROM poc.devices d\nLEFT JOIN poc.latest_telemetry t ON t.device_id=d.id\nWHERE d.external_id=$1\nLIMIT 1;`;\nmsg.params=[id];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 200,
+        "wires": [
+            [
+                "pg_get_toggle_state"
+            ]
+        ]
+    },
+    {
+        "id": "pg_get_toggle_state",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Get actuator state for toggle",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 740,
+        "y": 200,
+        "wires": [
+            [
+                "fn_build_toggle_cmd"
+            ]
+        ]
+    },
+    {
+        "id": "fn_build_toggle_cmd",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build actuator toggle command",
+        "func": "const row = Array.isArray(msg.payload) ? msg.payload[0] : null;\nif (!row) { return null; }\nconst m = row.metrics || {};\nif (row.external_id === 'z_plug_nous_a1z') {\n  const current = String(m.state || 'OFF').toUpperCase();\n  const next = current === 'ON' ? 'OFF' : 'ON';\n  msg.topic = 'zigbee2mqtt/z_plug_nous_a1z/set';\n  msg.payload = { state: next };\n}\nelse if (row.external_id === 'l_plug_milesight_ws513') {\n  const current = Number(m.relay || 0);\n  const next = current === 1 ? 0 : 1;\n  msg.topic = 'application/1/device/a1a2a3a4a5a6a7a8/command/down';\n  msg.payload = { fPort: 85, confirmed: true, data: next === 1 ? 'AQ==' : 'AA==' };\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 200,
+        "wires": [
+            [
+                "6934769a35a4061a",
+                "fn_q_actuator_status"
+            ]
+        ]
+    },
+    {
+        "id": "inj_refresh_events",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Refresh event sensors",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "4",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 380,
+        "wires": [
+            [
+                "fn_q_event_changes"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_event_changes",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Query event sensor changes",
+        "func": "msg.query = `WITH relevant AS (\n  SELECT d.external_id, t.ts,\n         CASE\n           WHEN d.external_id='z_motion_snzb03p' THEN 'occupancy'\n           WHEN d.external_id='l_contact_dragino_lds02' THEN 'door_open'\n         END AS metric_key,\n         CASE\n           WHEN d.external_id='z_motion_snzb03p' THEN t.metrics->>'occupancy'\n           WHEN d.external_id='l_contact_dragino_lds02' THEN t.metrics->>'door_open'\n         END AS metric_value\n  FROM poc.telemetry t\n  JOIN poc.devices d ON d.id=t.device_id\n  WHERE d.external_id IN ('z_motion_snzb03p','l_contact_dragino_lds02')\n  UNION ALL\n  SELECT d.external_id, t.ts,\n         'motion' AS metric_key,\n         t.metrics->>'motion' AS metric_value\n  FROM poc.telemetry t\n  JOIN poc.devices d ON d.id=t.device_id\n  WHERE d.external_id='z_motion_snzb03p'\n), diff AS (\n  SELECT external_id, metric_key, ts,\n         lag(metric_value) OVER (PARTITION BY external_id, metric_key ORDER BY ts) AS old_value,\n         metric_value AS new_value\n  FROM relevant\n  WHERE metric_value IS NOT NULL\n), ranked AS (\n  SELECT *, row_number() OVER (PARTITION BY external_id ORDER BY ts DESC) AS rn\n  FROM diff\n  WHERE old_value IS NOT NULL AND old_value <> new_value\n)\nSELECT external_id, metric_key, old_value, new_value, ts\nFROM ranked\nWHERE rn <= 5\nORDER BY external_id, ts DESC;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 380,
+        "wires": [
+            [
+                "pg_event_changes_query"
+            ]
+        ]
+    },
+    {
+        "id": "pg_event_changes_query",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query event changes",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 660,
+        "y": 380,
+        "wires": [
+            [
+                "fn_fmt_event_changes"
+            ]
+        ]
+    },
+    {
+        "id": "fn_fmt_event_changes",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Format event changes HTML",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst grouped = {\n  z_motion_snzb03p: [],\n  l_contact_dragino_lds02: []\n};\n\nfor (const r of rows) {\n  if (grouped[r.external_id]) {\n    grouped[r.external_id].push({\n      metricKey: r.metric_key,\n      oldValue: r.old_value,\n      newValue: r.new_value,\n      ts: r.ts || null\n    });\n  }\n}\n\nmsg.payload = grouped;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 380,
+        "wires": [
+            [
+                "tpl_event_changes"
+            ]
+        ]
+    },
+    {
+        "id": "fn_set_periodic_range",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Set periodic range",
+        "func": "flow.set('periodic_range', msg.payload || '1h');\nreturn { payload: 'refresh' };",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 560,
+        "wires": [
+            [
+                "fn_trigger_periodic"
+            ]
+        ]
+    },
+    {
+        "id": "fn_set_periodic_bucket",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Set periodic bucket",
+        "func": "flow.set('periodic_bucket', msg.payload || '1 minute');\nreturn { payload: 'refresh' };",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 600,
+        "wires": [
+            [
+                "fn_trigger_periodic"
+            ]
+        ]
+    },
+    {
+        "id": "inj_periodic_auto",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Auto refresh periodic",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "5",
+        "topic": "",
+        "payload": "refresh",
+        "payloadType": "str",
+        "x": 170,
+        "y": 640,
+        "wires": [
+            [
+                "fn_trigger_periodic"
+            ]
+        ]
+    },
+    {
+        "id": "fn_trigger_periodic",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Trigger periodic queries",
+        "func": "return [ {sensor:'z_th_snzb02wd'}, {sensor:'z_lux_haozee'}, {sensor:'l_temp_dragino_t68dl'} ];",
+        "outputs": 3,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 600,
+        "wires": [
+            [
+                "fn_q_periodic_th"
+            ],
+            [
+                "fn_q_periodic_lux"
+            ],
+            [
+                "fn_q_periodic_dragino"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_periodic_th",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build periodic query (z_th_snzb02wd)",
+        "func": "const rangeMap = { '1h':'1 hour' };\nconst range = flow.get('periodic_range') || '1h';\nconst bucket = flow.get('periodic_bucket') || '1 minute';\nconst interval = rangeMap[range] || '1 hour';\nmsg.query = `WITH base AS (\n  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,\n       NULLIF(t.metrics->>'temperature','') AS temperature,\n       NULLIF(t.metrics->>'humidity','') AS humidity,\n       t.ts\n  FROM poc.telemetry t\n  JOIN poc.devices d ON d.id=t.device_id\n  WHERE d.external_id='z_th_snzb02wd'\n    AND t.ts >= now() - interval '${interval}'\n)\nSELECT bucket, 'temperature' AS series, avg((temperature)::double precision) AS value FROM base WHERE temperature IS NOT NULL GROUP BY bucket UNION ALL SELECT bucket, 'humidity' AS series, avg((humidity)::double precision) AS value FROM base WHERE humidity IS NOT NULL GROUP BY bucket\nORDER BY bucket;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 930,
+        "y": 700,
+        "wires": [
+            [
+                "pg_q_periodic_th"
+            ]
+        ]
+    },
+    {
+        "id": "pg_q_periodic_th",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query periodic query (z_th_snzb02wd)",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1180,
+        "y": 700,
+        "wires": [
+            [
+                "fn_chart_periodic_th"
+            ]
+        ]
+    },
+    {
+        "id": "fn_chart_periodic_th",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build chart periodic query (z_th_snzb02wd)",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst grouped = {};\nfor (const r of rows) {\n  const series = r.series || 'value';\n  if (!grouped[series]) grouped[series] = [];\n  grouped[series].push({ x: new Date(r.bucket).getTime(), y: Number(r.value || 0) });\n}\nfor (const [series, points] of Object.entries(grouped)) {\n  node.send({ topic: series, payload: points, action: 'replace' });\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1430,
+        "y": 700,
+        "wires": [
+            [
+                "chart_periodic_th"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_periodic_lux",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build periodic query (z_lux_haozee)",
+        "func": "const rangeMap = { '1h':'1 hour' };\nconst range = flow.get('periodic_range') || '1h';\nconst bucket = flow.get('periodic_bucket') || '1 minute';\nconst interval = rangeMap[range] || '1 hour';\nmsg.query = `WITH base AS (\n  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,\n       NULLIF(t.metrics->>'illuminance','') AS illuminance,\n       t.ts\n  FROM poc.telemetry t\n  JOIN poc.devices d ON d.id=t.device_id\n  WHERE d.external_id='z_lux_haozee'\n    AND t.ts >= now() - interval '${interval}'\n)\nSELECT bucket, 'illuminance' AS series, avg((illuminance)::double precision) AS value FROM base WHERE illuminance IS NOT NULL GROUP BY bucket\nORDER BY bucket;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 930,
+        "y": 760,
+        "wires": [
+            [
+                "pg_q_periodic_lux"
+            ]
+        ]
+    },
+    {
+        "id": "pg_q_periodic_lux",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query periodic query (z_lux_haozee)",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1180,
+        "y": 760,
+        "wires": [
+            [
+                "fn_chart_periodic_lux"
+            ]
+        ]
+    },
+    {
+        "id": "fn_chart_periodic_lux",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build chart periodic query (z_lux_haozee)",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst grouped = {};\nfor (const r of rows) {\n  const series = r.series || 'value';\n  if (!grouped[series]) grouped[series] = [];\n  grouped[series].push({ x: new Date(r.bucket).getTime(), y: Number(r.value || 0) });\n}\nfor (const [series, points] of Object.entries(grouped)) {\n  node.send({ topic: series, payload: points, action: 'replace' });\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1430,
+        "y": 760,
+        "wires": [
+            [
+                "chart_periodic_lux"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_periodic_dragino",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build periodic query (l_temp_dragino_t68dl)",
+        "func": "const rangeMap = { '1h':'1 hour' };\nconst range = flow.get('periodic_range') || '1h';\nconst bucket = flow.get('periodic_bucket') || '1 minute';\nconst interval = rangeMap[range] || '1 hour';\nmsg.query = `WITH base AS (\n  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,\n       NULLIF(t.metrics->>'temperature','') AS temperature,\n       NULLIF(t.metrics->>'humidity','') AS humidity,\n       t.ts\n  FROM poc.telemetry t\n  JOIN poc.devices d ON d.id=t.device_id\n  WHERE d.external_id='l_temp_dragino_t68dl'\n    AND t.ts >= now() - interval '${interval}'\n)\nSELECT bucket, 'temperature' AS series, avg((temperature)::double precision) AS value FROM base WHERE temperature IS NOT NULL GROUP BY bucket UNION ALL SELECT bucket, 'humidity' AS series, avg((humidity)::double precision) AS value FROM base WHERE humidity IS NOT NULL GROUP BY bucket\nORDER BY bucket;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 930,
+        "y": 820,
+        "wires": [
+            [
+                "pg_q_periodic_dragino"
+            ]
+        ]
+    },
+    {
+        "id": "pg_q_periodic_dragino",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query periodic query (l_temp_dragino_t68dl)",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1180,
+        "y": 820,
+        "wires": [
+            [
+                "fn_chart_periodic_dragino"
+            ]
+        ]
+    },
+    {
+        "id": "fn_chart_periodic_dragino",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Build chart periodic query (l_temp_dragino_t68dl)",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst grouped = {};\nfor (const r of rows) {\n  const series = r.series || 'value';\n  if (!grouped[series]) grouped[series] = [];\n  grouped[series].push({ x: new Date(r.bucket).getTime(), y: Number(r.value || 0) });\n}\nfor (const [series, points] of Object.entries(grouped)) {\n  node.send({ topic: series, payload: points, action: 'replace' });\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1430,
+        "y": 820,
+        "wires": [
+            [
+                "chart_periodic_dragino"
+            ]
+        ]
+    },
+    {
+        "id": "inj_refresh_battery",
+        "type": "inject",
+        "z": "8350c63ee921963f",
+        "name": "Refresh battery/status",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "6",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 980,
+        "wires": [
+            [
+                "fn_q_battery"
+            ]
+        ]
+    },
+    {
+        "id": "fn_q_battery",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Query battery/status",
+        "func": "msg.query = `SELECT d.external_id,d.display_name,d.network,t.ts,t.metrics\nFROM poc.devices d\nLEFT JOIN poc.latest_telemetry t ON t.device_id=d.id\nORDER BY d.network,d.external_id;`;\nmsg.params=[];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 980,
+        "wires": [
+            [
+                "pg_q_battery"
+            ]
+        ]
+    },
+    {
+        "id": "pg_q_battery",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "Query battery/status",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 650,
+        "y": 980,
+        "wires": [
+            [
+                "fn_fmt_battery"
+            ]
+        ]
+    },
+    {
+        "id": "fn_fmt_battery",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "Format battery/status HTML",
+        "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst batteryColor = (b) => {\n  if (b === null || b === undefined || Number.isNaN(Number(b))) return '#9e9e9e';\n  const n = Number(b);\n  if (n <= 100 && n > 75) return '#2e7d32';\n  if (n <= 75 && n > 50) return '#7cb342';\n  if (n <= 50 && n > 25) return '#ef6c00';\n  if (n <= 25 && n >= 0) return '#c62828';\n  return '#9e9e9e';\n};\n\nmsg.payload = rows.map((r) => {\n  const m = r.metrics || {};\n  const b = m.battery ?? null;\n  const statusParts = ['state','relay','occupancy','motion','door_open','online']\n    .filter((k) => m[k] !== undefined)\n    .map((k) => `${k}: ${m[k]}`);\n\n  return {\n    device: r.display_name || r.external_id,\n    battery: b,\n    batteryColor: batteryColor(b),\n    status: statusParts.join(' | ') || 'status not available',\n    lastTs: r.ts || null,\n    warning: r.ts ? '' : 'Missing telemetry data'\n  };\n});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 910,
+        "y": 980,
+        "wires": [
+            [
+                "tpl_battery"
+            ]
+        ]
     }
 ]
