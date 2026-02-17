@@ -14,13 +14,13 @@ mqtt:
 adapter: zstack
 
 serial:
-# When hardware is unavailable, point to the simulator service: zigbee-adapter-sim:6638
-  port: tcp://zigbee-adapter-sim:6638
+  # Uses values from stack/.env (SLZB06_IP, SLZB06_PORT).
+  port: tcp://${SLZB06_IP}:${SLZB06_PORT}
 
 advanced:
-  channel: 15
-  pan_id: 0x1A62
-  ext_pan_id: [0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD,0xDD]
-  network_key: GENERATE
+  channel: ${Z2M_CHANNEL}
+  pan_id: ${Z2M_PAN_ID}
+  ext_pan_id: ${Z2M_EXT_PAN_ID}
+  network_key: ${Z2M_NETWORK_KEY}
 
 availability: true

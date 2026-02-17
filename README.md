@@ -56,12 +56,24 @@ Match those in your `.env` credentials.
 The gateway LNS URI host must match `LNS_HOST` (DNS or IP) because it must match the certificate SAN.
 Gateway LNS URI: `wss://<LNS_HOST>:<LNS_PORT>`
 
-## Zigbee adapter simulator
-`zigbee-adapter-sim` is a lightweight TCP listener that simulates a Zigbee serial adapter so Zigbee2MQTT can start without real hardware. The Zigbee2MQTT config points its `serial.port` to `tcp://zigbee-adapter-sim:6638`. Replace this with your actual adapter (USB or LAN) and remove the simulator service when you have real hardware.
+## Zigbee runtime
+Zigbee2MQTT configuration is rendered from `stack/.env` and `stack/templates/zigbee2mqtt_configuration.yaml.tmpl`.
 
-To disable Zigbee2MQTT (no hardware yet), leave `COMPOSE_PROFILES` empty in `.env`. To enable it (with the simulator), set `COMPOSE_PROFILES=zigbee` and run `docker compose up -d`.
+Source-of-truth variables:
+- Coordinator endpoint: `SLZB06_IP`, `SLZB06_PORT`
+- Zigbee network: `Z2M_CHANNEL`, `Z2M_PAN_ID`, `Z2M_EXT_PAN_ID`, `Z2M_NETWORK_KEY`
+- Profile activation: `COMPOSE_PROFILES=zigbee`
 
-If you use an external MQTT simulator, you can keep Zigbee2MQTT disabled and still validate downstream flows by publishing synthetic messages to the same topics that Zigbee2MQTT and ChirpStack would normally emit.
+After any `.env` Zigbee change:
+1) `bash scripts/15_render_configs.sh`
+2) `docker compose -f stack/docker-compose.yml up -d zigbee2mqtt`
+3) `docker compose -f stack/docker-compose.yml logs --tail 200 zigbee2mqtt`
+
+If you use an external MQTT simulator, it can run side by side with real devices by publishing synthetic messages to the same topics that Zigbee2MQTT and ChirpStack use.
+
+## Hardware-specific guides
+- SMLIGHT SLZB-06U (Zigbee coordinator): `devices/zigbee/SMLIGHT_SLZB-06U/README.md`
+- HZ light sensor (periodic Zigbee sensor): `devices/zigbee/HZ_LIGHT_ZIGBEE/README.md`
 
 ## Health checklist
 1) `docker compose ps` shows all services `Up` and `healthy` (where healthchecks are defined).

@@ -1,0 +1,4 @@
+zigbee2mqtt/hz_light_zigbee_01 {"brightness_state":"high","illuminance_lux":381,"linkquality":145}
+zigbee2mqtt/hz_light_zigbee_01 {"brightness_state":"high","illuminance_lux":381,"linkquality":94}
+zigbee2mqtt/hz_light_zigbee_01 {"brightness_state":"high","illuminance_lux":369,"linkquality":98}
+zigbee2mqtt/hz_light_zigbee_01 {"brightness_state":"high","illuminance_lux":369,"linkquality":145}

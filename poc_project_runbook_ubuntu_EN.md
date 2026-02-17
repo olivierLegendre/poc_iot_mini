@@ -240,6 +240,7 @@ Freeze Zigbee channel and PAN IDs BEFORE pairing devices.
 **Documentation**
 
 - Zigbee2MQTT configuration.yaml (serial TCP, advanced channel/pan)
+- there is a full step-by-set walkthrough to setup and configure the coordinator on /poc/devices/zigbee/SMLIGHT_SLZB-06U/README.md
 
 **Action**
 
@@ -275,6 +276,7 @@ Use a controlled pairing window and record the reset/join procedure.
 
 **Documentation**
 
+- Device onboarding runbook: `devices/zigbee/HZ_LIGHT_ZIGBEE/README.md`
 - Device vendor reset/join procedure
 - Zigbee2MQTT permit_join + naming
 
@@ -295,7 +297,8 @@ Use a controlled pairing window and record the reset/join procedure.
 **Commands**
 
 ```bash
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E1_zigbee_sensor1_mqtt.txt
+source ~/Public/poc/stack/.env
+mosquitto_sub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E1_zigbee_sensor1_mqtt.txt
 ```
 
 ### E2 — Pair Zigbee event-driven sensor and run N trials
@@ -326,7 +329,8 @@ Event-driven testing must be controlled: N stimuli, N expected events.
 
 ```bash
 # MQTT capture (run during trials)
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E2_zigbee_event_trials_mqtt.txt
+source ~/Public/poc/stack/.env
+mosquitto_sub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/E2_zigbee_event_trials_mqtt.txt
 ```
 
 ### E3 — Pair Zigbee actuator and validate ON/OFF

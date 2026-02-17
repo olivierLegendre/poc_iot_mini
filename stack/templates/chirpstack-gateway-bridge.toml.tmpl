@@ -2,6 +2,9 @@
 [general]
 log_level=5
 
+[backend]
+type="basic_station"
+
 [integration.mqtt]
 # Payload marshaler: protobuf or json
 marshaler="protobuf"
@@ -18,8 +21,6 @@ marshaler="protobuf"
 
 [backend.basic_station]
 bind="0.0.0.0:${LNS_PORT}"
-
-  [backend.basic_station.tls]
-  ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
-  cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
-  key="/etc/chirpstack-gateway-bridge/certs/server.key"
+ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
+tls_cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
+tls_key="/etc/chirpstack-gateway-bridge/certs/server.key"
