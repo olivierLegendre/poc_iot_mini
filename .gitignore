@@ -6,6 +6,8 @@ stack/gateway-bridge/chirpstack-gateway-bridge.toml
 stack/zigbee2mqtt/configuration.yaml
 stack/zigbee2mqtt/configuration_backup_v*.yaml
 stack/zigbee2mqtt/state.json
+stack/zigbee2mqtt/database.db
+stack/zigbee2mqtt/coordinator_backup.json
 stack/gateway-bridge/certs/*.key
 stack/gateway-bridge/certs/*.csr
 stack/gateway-bridge/certs/*.srl
@@ -19,6 +21,8 @@ stack/gateway-bridge/certs/*.crt
 /stack/zigbee2mqtt/configuration.yaml
 /stack/zigbee2mqtt/configuration_backup_v*.yaml
 /stack/zigbee2mqtt/state.json
+/stack/zigbee2mqtt/database.db
+/stack/zigbee2mqtt/coordinator_backup.json
 /stack/gateway-bridge/certs/*.key
 /stack/gateway-bridge/certs/*.csr
 /stack/gateway-bridge/certs/*.srl
@@ -40,3 +44,7 @@ yarn-error.log*
 .pnpm-debug.log*
 .idea/
 *.iml
+
+devices/zigbee/SMLIGHT_SLZB-06U/pictures/
+
+devices/zigbee/HZ_LIGHT_ZIGBEE/pictures/
