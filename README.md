@@ -30,19 +30,22 @@ You can run a single setup script from anywhere inside the repository:
 If `.env` does not exist, the script will copy `.env.example` to `.env` and stop so you can review credentials before re-running it.
 
 ## Node-RED + FlowFuse Dashboard base flow
-The Node-RED `stack/nodered/flows.json` file includes a base ingestion flow that:
+The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow that:
 - Subscribes to `zigbee2mqtt/#` and `application/+/device/+/event/#`.
 - Normalizes messages into a single envelope.
 - Upserts `poc.devices` and inserts `poc.telemetry` rows.
 - Builds FlowFuse Dashboard pages with:
-  - **PoC activity** charts (live, record, and complete views).
-  - **All Devices**: a list of all devices that have sent data.
+- **PoC activity** charts (live, record, and complete views). Defaults on load: Source = "Both", Range = "Last 1 hour".
+- **All Devices**: a list of all devices that have sent data, with online/offline based on last uplink (online if seen within 1 hour).
   - **Actuators**: toggle buttons for supported actuators and a dedicated status section.
-  - **Event Sensors**: last 5 status changes per event sensor.
-  - **Periodic Sensors**: per-device time-series charts with range and bucket selectors.
-  - **Battery & Status**: latest battery levels with color coding and status warnings.
+- **Event Sensors**: last 5 status changes per event sensor, with online/offline status based on last uplink.
+- **Periodic Sensors**: per-device time-series charts with range and bucket selectors (defaults to Last 1 hour / 1 minute on load). Devices with multiple metrics render one chart per metric.
+- **Battery & Status**: latest battery levels with color coding and status warnings. Zigbee uses battery % (`battery` or `battery_percentage`), LoRa battery voltage is converted to % with device-specific ranges, and mains devices show "main-powered" (green). Battery % uses the most recent telemetry that includes a battery field. Warnings show "battery low" (<25%) or "battery very low" (<10%).
+Online/offline on the **All Devices** page uses `THRESHOLD_LAST_SEEN_MINUTES` from `stack/.env` (default 60 minutes).
 
 Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
+
+The Compose file bind-mounts `stack/nodered/data` to `/data` in the container, so edits in the repo are reflected in Node-RED after a restart, and UI deploys write back to the same file. The directory mount avoids `EBUSY` errors during Node-RED's atomic save (it writes `flows.json.$$$` and renames it). If you change `flows.json`, run `docker compose -f stack/docker-compose.yml up -d nodered` then `docker compose -f stack/docker-compose.yml restart nodered` (or restart the container) to load the new flow, or use `bash scripts/45_reload_nodered.sh` to restart and verify the flow checksum. If Node-RED cannot write the file, ensure the host directory is writable by the container user.
 
 ## Important nuance (Mosquitto ACL)
 Mosquitto does **not** expand environment variables inside `acl`.
@@ -62,9 +65,10 @@ If you use an external MQTT simulator, you can keep Zigbee2MQTT disabled and sti
 
 ## Health checklist
 1) `docker compose ps` shows all services `Up` and `healthy` (where healthchecks are defined).
-2) `docker compose logs chirpstack` should not show `operator class "gin_trgm_ops" does not exist for access method "gin"`.
-3) `docker compose logs zigbee2mqtt` should show a successful connection to the adapter and no repeated reconnect loops.
-4) Immediately after a fresh bootstrap, PostgreSQL may log `FATAL: database "chirpstack" does not exist` and `FATAL: database "poc_nodered" does not exist` before `init_postgres_users.sh` creates them. These messages should disappear once the script completes.
+2) ChirpStack waits for PostgreSQL and Redis before starting. If `docker compose logs chirpstack` shows `Connection refused`, verify `postgres` and `redis` are running and healthy.
+3) `docker compose logs chirpstack` should not show `operator class "gin_trgm_ops" does not exist for access method "gin"`.
+4) `docker compose logs zigbee2mqtt` should show a successful connection to the adapter and no repeated reconnect loops.
+5) Immediately after a fresh bootstrap, PostgreSQL may log `FATAL: database "chirpstack" does not exist` and `FATAL: database "poc_nodered" does not exist` before `init_postgres_users.sh` creates them. These messages should disappear once the script completes.
 
 ## Data persistence
 - PostgreSQL data persists across container restarts because it uses the `pg-data` named volume. It is only lost if the volume is removed (for example, `docker compose down -v`).

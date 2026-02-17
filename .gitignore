@@ -23,6 +23,11 @@ stack/gateway-bridge/certs/*.crt
 /stack/gateway-bridge/certs/*.csr
 /stack/gateway-bridge/certs/*.srl
 /stack/gateway-bridge/certs/*.crt
+# Node-RED runtime data (keep flows.json tracked)
+/stack/nodered/data/*
+!/stack/nodered/data/flows.json
+stack/nodered/data/*
+!stack/nodered/data/flows.json
 # Environment variables file
 .env
 .github/

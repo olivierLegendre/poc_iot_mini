@@ -70,7 +70,15 @@ services:
     volumes:
       # ChirpStack v4 must be started with --config-dir pointing to a directory of .toml files.
       - ./chirpstack:/etc/chirpstack:ro
-    command: ["--config", "/etc/chirpstack"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+          echo "Waiting for Postgres..."
+          until nc -z postgres 5432; do sleep 1; done
+          echo "Waiting for Redis..."
+          until nc -z redis 6379; do sleep 1; done
+          exec chirpstack --config /etc/chirpstack
     environment:
       - TZ=${TZ}
 
@@ -131,7 +139,8 @@ services:
     environment:
       - TZ=${TZ}
     volumes:
-      - nodered-data:/data
+      # Bind-mount the whole user directory so Node-RED can atomically save flows.
+      - ./nodered/data:/data
 
   zigbee-adapter-sim:
     image: alpine:3.18
@@ -154,4 +163,3 @@ volumes:
   pg-data:
   mosquitto-data:
   mosquitto-log:
-  nodered-data:
