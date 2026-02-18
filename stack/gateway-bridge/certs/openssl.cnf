@@ -1,10 +1,20 @@
 [req]
 distinguished_name=req_distinguished_name
-x509_extensions=v3_req
 prompt=no
 
 [req_distinguished_name]
-CN=poc-gw.local
+CN=172.17.0.85
 
-[v3_req]
-subjectAltName=DNS:poc-gw.local
+[v3_ca]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer
+basicConstraints=critical,CA:true,pathlen:0
+keyUsage=critical,keyCertSign,cRLSign
+
+[v3_server]
+basicConstraints=critical,CA:false
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=IP:172.17.0.85,DNS:172.17.0.85
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer

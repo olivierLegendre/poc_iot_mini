@@ -1,0 +1,4 @@
+# Gateway Bridge uses protobuf MQTT marshaling by default in this PoC.
+# Use F1 evidence logs for validation:
+# - evidence/logs/F1_gwbridge_logs.txt
+# - evidence/logs/F1_gwbridge_tls_check.txt

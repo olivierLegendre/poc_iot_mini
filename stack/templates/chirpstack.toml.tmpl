@@ -3,13 +3,47 @@
 dsn="postgres://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=disable"
 
 [redis]
-url="redis://redis:6379"
+servers=[
+  "redis://${REDIS_HOST}:${REDIS_PORT}/",
+]
+
+[network]
+enabled_regions=[
+  "${CHIRPSTACK_REGION_ID}",
+]
+
+[[regions]]
+id="${CHIRPSTACK_REGION_ID}"
+description="${CHIRPSTACK_REGION_DESCRIPTION}"
+common_name="${CHIRPSTACK_REGION_COMMON_NAME}"
+
+  [regions.gateway]
+  force_gws_private=false
+
+    [regions.gateway.backend]
+    enabled="mqtt"
+
+      [regions.gateway.backend.mqtt]
+      topic_prefix="${CHIRPSTACK_REGION_TOPIC_PREFIX}"
+      server="tcp://${MQTT_HOST}:${MQTT_PORT}"
+      username="${MQTT_ADMIN_USER}"
+      password="${MQTT_ADMIN_PASS}"
+      qos=0
+      clean_session=false
+      client_id=""
+      keep_alive_interval="30s"
+      ca_cert=""
+      tls_cert=""
+      tls_key=""
+
+[integration]
+enabled=["mqtt"]
 
 [integration.mqtt]
 server="tcp://${MQTT_HOST}:${MQTT_PORT}/"
-servers=["tcp://${MQTT_HOST}:${MQTT_PORT}"]
 username="${MQTT_ADMIN_USER}"
 password="${MQTT_ADMIN_PASS}"
+json=true
 
 [api]
 bind="0.0.0.0:8080"

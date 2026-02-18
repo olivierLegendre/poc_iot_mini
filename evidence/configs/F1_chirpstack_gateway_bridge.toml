@@ -1,0 +1,26 @@
+# ChirpStack Gateway Bridge v4 config template
+[general]
+log_level=5
+
+[backend]
+type="basic_station"
+
+[integration.mqtt]
+# Payload marshaler: protobuf or json
+marshaler="protobuf"
+
+  [integration.mqtt.auth]
+  type="generic"
+
+    [integration.mqtt.auth.generic]
+    servers=[
+      "tcp://mosquitto:1883",
+    ]
+    username="admin"
+    password="mqtt_admin_password"
+
+[backend.basic_station]
+bind="0.0.0.0:3443"
+ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
+tls_cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
+tls_key="/etc/chirpstack-gateway-bridge/certs/server.key"

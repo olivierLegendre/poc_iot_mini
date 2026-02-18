@@ -343,6 +343,7 @@ Choose an actuator with clear physical feedback (LED/relay click).
 **Documentation**
 
 - Zigbee2MQTT set commands (`.../set`)
+- Device onboarding runbook (actuator smart plug): `devices/zigbee/NOUS_A1Z/README.md`
 
 **Action**
 
@@ -361,9 +362,10 @@ Choose an actuator with clear physical feedback (LED/relay click).
 **Commands**
 
 ```bash
-mosquitto_pub -h localhost -t 'zigbee2mqtt/<ACTUATOR_NAME>/set' -m '{"state":"ON"}'
+source ~/Public/poc/stack/.env
+mosquitto_pub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'zigbee2mqtt/<ACTUATOR_NAME>/set' -m '{"state":"ON"}'
 sleep 2
-mosquitto_pub -h localhost -t 'zigbee2mqtt/<ACTUATOR_NAME>/set' -m '{"state":"OFF"}'
+mosquitto_pub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'zigbee2mqtt/<ACTUATOR_NAME>/set' -m '{"state":"OFF"}'
 ```
 
 ### F1 — Enable Basics Station LNS (wss) on the server + generate TLS
@@ -376,25 +378,43 @@ TLS server authentication must be correct before touching the gateway configurat
 
 - ChirpStack Gateway Bridge: basics_station backend + bind port
 - TLS: CA + server cert SAN must match wss host
+- Device onboarding runbook (gateway): `devices/lora/wisgate_edge_lite_2/README.md`
+- RAK7268 WisGate Edge Lite 2 quickstart:
+  `https://docs.rakwireless.com/product-categories/wisgate/rak7268/quickstart`
+- Arduino WisGate Edge Lite 2 page:
+  `https://docs.arduino.cc/hardware/wisgate-edge-lite-2/`
 
 **Action**
 
-- Choose the host for the gateway LNS URI (DNS name or fixed LAN IP)
-- Generate CA + server cert/key with SAN including that host
-- Configure Gateway Bridge with `bind=:3000` and TLS cert/key paths; restart it
+- Set `LNS_HOST` and `LNS_PORT` in `stack/.env` (must match gateway LNS URI)
+- Generate TLS assets with `scripts/30_generate_tls_basics_station.sh`
+- Render config with `scripts/15_render_configs.sh`
+- Restart `chirpstack-gateway-bridge` and verify logs
 
 **Test / Pass**
 
 - Gateway Bridge starts; no TLS errors; LNS listener is up
+- TLS handshake check succeeds against local CA
 
 **Proof / Evidence**
 
-- Save cert CA (public) + Gateway Bridge logs + config extract
+- Save cert CA (public) + Gateway Bridge logs + config extract + TLS check output
 
 **Commands**
 
 ```bash
+cd ~/Public/poc
+bash scripts/30_generate_tls_basics_station.sh
+bash scripts/15_render_configs.sh
+
+cd ~/Public/poc/stack
+docker compose up -d chirpstack-gateway-bridge
 docker logs --tail 200 chirpstack-gateway-bridge | tee ~/Public/poc/evidence/logs/F1_gwbridge_logs.txt
+
+source ~/Public/poc/stack/.env
+openssl s_client -connect localhost:${LNS_PORT} -servername "${LNS_HOST}" \
+  -CAfile ~/Public/poc/stack/gateway-bridge/certs/ca.crt < /dev/null \
+  | tee ~/Public/poc/evidence/logs/F1_gwbridge_tls_check.txt
 ```
 
 ### F2 — Configure RAK WisGate Edge Lite 2 V2 (EU868, Basics Station, LNS-only)
@@ -411,8 +431,9 @@ This is mostly a gateway UI task: set EU868, Basics Station, wss LNS URI, import
 
 - Set region/channel-plan to EU868
 - Enable Basics Station mode
-- Set LNS Server to `wss://<HOST>:3000`
+- Set LNS Server to `wss://<HOST>:<LNS_PORT>`
 - Disable / leave CUPS empty (LNS-only)
+- Select authentication mode `TLS Server Authentication` (CA only)
 - Import the CA certificate into the gateway trust store
 
 **Test / Pass**

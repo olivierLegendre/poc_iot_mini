@@ -8,6 +8,9 @@ type="basic_station"
 [integration.mqtt]
 # Payload marshaler: protobuf or json
 marshaler="protobuf"
+event_topic_template="${CHIRPSTACK_REGION_TOPIC_PREFIX}/gateway/{{ .GatewayID }}/event/{{ .EventType }}"
+state_topic_template="${CHIRPSTACK_REGION_TOPIC_PREFIX}/gateway/{{ .GatewayID }}/state/{{ .StateType }}"
+command_topic_template="${CHIRPSTACK_REGION_TOPIC_PREFIX}/gateway/{{ .GatewayID }}/command/#"
 
   [integration.mqtt.auth]
   type="generic"
@@ -21,6 +24,29 @@ marshaler="protobuf"
 
 [backend.basic_station]
 bind="0.0.0.0:${LNS_PORT}"
-ca_cert="/etc/chirpstack-gateway-bridge/certs/ca.crt"
 tls_cert="/etc/chirpstack-gateway-bridge/certs/server.crt"
 tls_key="/etc/chirpstack-gateway-bridge/certs/server.key"
+region="${CHIRPSTACK_REGION_COMMON_NAME}"
+frequency_min=863000000
+frequency_max=870000000
+
+[[backend.basic_station.concentrators]]
+  [backend.basic_station.concentrators.multi_sf]
+  frequencies=[
+    868100000,
+    868300000,
+    868500000,
+    867100000,
+    867300000,
+    867500000,
+    867700000,
+    867900000,
+  ]
+
+  [backend.basic_station.concentrators.lora_std]
+  frequency=868300000
+  bandwidth=250000
+  spreading_factor=7
+
+  [backend.basic_station.concentrators.fsk]
+  frequency=868800000

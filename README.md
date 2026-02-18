@@ -75,6 +75,8 @@ If you use an external MQTT simulator, it can run side by side with real devices
 - SMLIGHT SLZB-06U (Zigbee coordinator): `devices/zigbee/SMLIGHT_SLZB-06U/README.md`
 - HZ light sensor (periodic Zigbee sensor): `devices/zigbee/HZ_LIGHT_ZIGBEE/README.md`
 - SONOFF SNZB-03P (event-driven motion sensor): `devices/zigbee/SONOFF_SNZB_03P/README.md`
+- NOUS A1Z (actuator smart plug for E3 ON/OFF): `devices/zigbee/NOUS_A1Z/README.md`
+- RAK WisGate Edge Lite 2 V2 (LoRaWAN gateway for F1-F3): `devices/lora/wisgate_edge_lite_2/README.md`
 
 ## Health checklist
 1) `docker compose ps` shows all services `Up` and `healthy` (where healthchecks are defined).
