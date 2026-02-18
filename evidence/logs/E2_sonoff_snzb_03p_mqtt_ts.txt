@@ -1,0 +1,12 @@
+2026-02-18T08:29:29Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":127,"occupancy":false,"voltage":3000}
+2026-02-18T08:29:35Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":167,"occupancy":true,"voltage":3000}
+2026-02-18T08:29:36Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":145,"occupancy":true,"voltage":3000}
+2026-02-18T08:30:37Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":163,"occupancy":false,"voltage":3000}
+2026-02-18T08:31:17Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":156,"occupancy":true,"voltage":3000}
+2026-02-18T08:31:18Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":163,"occupancy":true,"voltage":3000}
+2026-02-18T08:34:28Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":167,"occupancy":false,"voltage":3000}
+2026-02-18T08:34:50Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":138,"occupancy":true,"voltage":3000}
+2026-02-18T08:34:51Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":153,"occupancy":true,"voltage":3000}
+2026-02-18T08:36:18Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":167,"occupancy":false,"voltage":3000}
+2026-02-18T08:36:40Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":160,"occupancy":true,"voltage":3000}
+2026-02-18T08:36:40Z zigbee2mqtt/sonoff_snzb_03p_01 {"battery":100,"illumination":"bright","linkquality":160,"occupancy":true,"voltage":3000}

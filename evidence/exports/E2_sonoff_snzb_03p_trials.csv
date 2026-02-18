@@ -1,0 +1,5 @@
+trial_id,stimulus_ts_utc,stimulus_type,expected_event,observed_event,observed_ts_utc,latency_ms,duplicate_count,notes
+1,2026-02-18T08:29:35Z,motion_trigger,occupancy:true,occupancy:true,2026-02-18T08:29:35Z,0,1,battery=100;linkquality=167
+2,2026-02-18T08:31:17Z,motion_trigger,occupancy:true,occupancy:true,2026-02-18T08:31:17Z,0,1,battery=100;linkquality=156
+3,2026-02-18T08:34:50Z,motion_trigger,occupancy:true,occupancy:true,2026-02-18T08:34:50Z,0,1,battery=100;linkquality=138
+4,2026-02-18T08:36:40Z,motion_trigger,occupancy:true,occupancy:true,2026-02-18T08:36:40Z,0,1,battery=100;linkquality=160

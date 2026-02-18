@@ -1,0 +1,3 @@
+133:[2026-02-17 16:48:05] [32minfo[39m: 	z2m: Device '0xf044d3fffe9171eb' joined
+137:[2026-02-17 16:48:05] [32minfo[39m: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/event', payload '{"data":{"friendly_name":"0xf044d3fffe9171eb","ieee_address":"0xf044d3fffe9171eb"},"type":"device_joined"}'
+142:[2026-02-17 16:48:11] [32minfo[39m: 	z2m: Successfully interviewed '0xf044d3fffe9171eb', device has successfully been paired

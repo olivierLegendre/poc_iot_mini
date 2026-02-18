@@ -310,6 +310,7 @@ Event-driven testing must be controlled: N stimuli, N expected events.
 **Documentation**
 
 - Trial table method (miss/duplicate/latency)
+- Device onboarding runbook (motion sensor): `devices/zigbee/SONOFF_SNZB_03P/README.md`
 
 **Action**
 
