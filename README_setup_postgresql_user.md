@@ -1,111 +1,64 @@
-# Option A — PostgreSQL Users and Databases (Automatic Setup)
+# PostgreSQL Initialization (Single Entrypoint)
 
-This approach automatically creates all required PostgreSQL users and databases when the stack starts:
+PostgreSQL initialization is managed by one orchestrator script:
 
-- **Admin** (superuser): `postgres` (Docker default)
-- **ChirpStack**: role with full access to `chirpstack` database
-- **Node-RED**: role with full access to `poc_nodered` database
+- `scripts/42_init_postgres.sh`
 
-## How it works
+This script is called by `scripts/40_docker_up.sh` after containers start.
 
-The setup is fully automated via two components:
+## Responsibilities
 
-### 1. SQL Init File (runs on first postgres container start)
+`scripts/42_init_postgres.sh` is the single entrypoint for PostgreSQL init. It:
 
-The file [stack/postgres/init/00_create_users.sql](stack/postgres/init/00_create_users.sql) runs automatically when the postgres container starts for the first time. It:
+- reads credentials and DB names from `stack/.env`
+- waits for PostgreSQL readiness
+- applies SQL scripts from `stack/postgres/init` in a controlled order
+- verifies resulting databases and connectivity
 
-- Creates the `chirpstack` role with login and password (idempotent via PL/pgSQL exception handling)
-- Creates the `nodered` role with login and password (idempotent via PL/pgSQL exception handling)
-- All role creation is idempotent (safe to run multiple times)
+SQL ownership stays in PostgreSQL files:
 
-### 2. Shell Init Script (runs when starting the full stack)
+- `stack/postgres/init/00_create_users.sql`: roles, databases, DB-level grants
+- `stack/postgres/init/02_chirpstack_extensions.sql`: ChirpStack schema/extensions
+- `stack/postgres/init/01_poc_schema.sql`: PoC schema, tables, indexes, grants
 
-The script [init_postgres_users.sh](init_postgres_users.sh) is automatically called by `bash scripts/40_up.sh` after the stack starts. It:
+All scripts are idempotent.
 
-- Checks if `chirpstack` database exists, creates only if missing
-- Checks if `poc_nodered` database exists, creates only if missing
-- Grants full privileges to each role on its respective database
-- All operations are idempotent (safe to run multiple times)
-- Provides clear logging of what it's doing ("Creating" vs "already exists")
+## Important Behavior
 
-## Configure ChirpStack
+- The stack no longer relies on `/docker-entrypoint-initdb.d`.
+- Re-running `bash scripts/40_docker_up.sh` is safe.
+- If PostgreSQL init fails, `scripts/40_docker_up.sh` fails fast and runs `docker compose down` (without deleting volumes).
 
-ChirpStack should be configured in `stack/chirpstack/chirpstack.toml` (or via template) with:
+## Source of Truth for Credentials
 
-```toml
-[postgresql]
-dsn = "postgres://chirpstack:your_password@postgres:5432/chirpstack?sslmode=disable"
-```
+Set values in `stack/.env`:
 
-## Configure Node-RED (node-red-contrib-postgresql)
+- `POSTGRES_ADMIN_USER`
+- `POSTGRES_ADMIN_DB`
+- `POSTGRES_ADMIN_PASSWORD`
+- `CHIRPSTACK_PG_DB`
+- `CHIRPSTACK_PG_USER`
+- `CHIRPSTACK_PG_PASSWORD`
+- `NODERED_PG_DB`
+- `NODERED_PG_USER`
+- `NODERED_PG_PASSWORD`
 
-In Node-RED:
+## Startup Workflow
 
-- Double-click any `postgresql` node
-- Click the pencil icon on the `postgreSQLConfig` config
-- Set:
+When you run `bash scripts/40_docker_up.sh`:
 
-| Field | Value |
-|------|-------|
-| Host | `postgres` |
-| Port | `5432` |
-| Database | `poc_nodered` (or your `NR_PG_DB`) |
-| User | `nodered` (or your `NR_PG_USER`) |
-| Password | the value you set |
-| SSL | `false` (for local PoC) |
+1. Docker Compose starts containers.
+2. `scripts/42_init_postgres.sh` runs.
+3. SQL files in `stack/postgres/init` are applied.
+4. Verification queries run.
+5. Script exits successfully only if initialization is complete.
 
-Important: If Node-RED runs in Docker **in the same compose network**, use `postgres` as host (not `localhost`).
-
-## Verify
-
-List all users:
+## Verification
 
 ```bash
-docker compose exec postgres psql -U postgres -d postgres -c "\du"
+docker compose -f stack/docker-compose.yml exec postgres psql -U postgres -d postgres -c "\du"
+docker compose -f stack/docker-compose.yml exec postgres psql -U postgres -d postgres -c "\l"
+docker compose -f stack/docker-compose.yml exec postgres psql -U nodered -d poc_nodered -c "SELECT now();"
+docker compose -f stack/docker-compose.yml exec postgres psql -U chirpstack -d chirpstack -c "SELECT now();"
+docker compose -f stack/docker-compose.yml exec postgres psql -U nodered -d poc_nodered -c "\dt poc.*"
 ```
-
-List all databases:
-
-```bash
-docker compose exec postgres psql -U postgres -d postgres -c "\l"
-```
-
-Connect as chirpstack and verify:
-
-```bash
-docker compose exec postgres psql -U chirpstack -d chirpstack -c "SELECT now();"
-```
-
-Connect as nodered and verify:
-
-```bash
-docker compose exec postgres psql -U nodered -d poc_nodered -c "SELECT now();"
-```
-
-List tables in Node-RED database:
-
-```bash
-docker compose exec postgres psql -U nodered -d poc_nodered -c '\dt'
-```
-
-## Startup workflow
-
-When you run `bash scripts/40_up.sh`:
-
-1. Docker Compose starts all services including postgres
-2. On first postgres startup, the SQL init file automatically creates roles
-3. After a short wait, the script automatically calls `init_postgres_users.sh`
-4. Database creation and privilege assignment complete
-5. All services are ready to connect to PostgreSQL
-
-## Reset (clean slate)
-
-If you need to reset everything and start over:
-
-```bash
-bash scripts/41_down.sh
-docker volume rm poc-iot_pg-data
-bash scripts/40_up.sh
-```
-
-The SQL init file will re-create all roles automatically, and the shell script will create all databases.

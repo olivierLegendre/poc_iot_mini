@@ -19,13 +19,13 @@ Then:
 4) `bash scripts/20_generate_mqtt_auth.sh`
 5) `bash scripts/30_generate_tls_basics_station.sh`
 6) `bash scripts/35_verify_no_secrets_tracked.sh`
-7) `bash scripts/40_up.sh`
+7) `bash scripts/40_docker_up.sh`
 
-Note: `init_postgres_users.sh` also applies required PostgreSQL extensions for ChirpStack (e.g., `pg_trgm`), places them in the `chirpstack` schema, and ensures the `chirpstack` role owns and can create objects in that schema (with an appropriate search_path).
+Note: `scripts/42_init_postgres.sh` is the PostgreSQL initialization entrypoint. It reconciles roles/databases/passwords from `stack/.env`, applies ChirpStack extensions, and applies the PoC schema SQL.
 
 ## One-shot setup
 You can run a single setup script from anywhere inside the repository:
-`bash scripts/50_setup_all.sh`
+`bash scripts/setup_all.sh`
 
 If `.env` does not exist, the script will copy `.env.example` to `.env` and stop so you can review credentials before re-running it.
 
@@ -34,6 +34,10 @@ The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow
 - Subscribes to `zigbee2mqtt/#` and `application/+/device/+/event/#`.
 - Normalizes messages into a single envelope.
 - Upserts `poc.devices` and inserts `poc.telemetry` rows.
+- Does not own PostgreSQL bootstrap. Roles/databases/extensions/schema are initialized by `scripts/42_init_postgres.sh`.
+- Uses immutable canonical device IDs for `poc.devices.external_id`:
+  - Zigbee: `ieee_address` (EUI-64).
+  - LoRaWAN: `DevEUI` (lowercase).
 - Builds FlowFuse Dashboard pages with:
 - **PoC activity** charts (live, record, and complete views). Defaults on load: Source = "Both", Range = "Last 1 hour".
 - **All Devices**: a list of all devices that have sent data, with online/offline based on last uplink (online if seen within 1 hour).
@@ -45,7 +49,7 @@ Online/offline on the **All Devices** page uses `THRESHOLD_LAST_SEEN_MINUTES` fr
 
 Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
 
-The Compose file bind-mounts `stack/nodered/data` to `/data` in the container, so edits in the repo are reflected in Node-RED after a restart, and UI deploys write back to the same file. The directory mount avoids `EBUSY` errors during Node-RED's atomic save (it writes `flows.json.$$$` and renames it). If you change `flows.json`, run `docker compose -f stack/docker-compose.yml up -d nodered` then `docker compose -f stack/docker-compose.yml restart nodered` (or restart the container) to load the new flow, or use `bash scripts/45_reload_nodered.sh` to restart and verify the flow checksum. If Node-RED cannot write the file, ensure the host directory is writable by the container user.
+The Compose file bind-mounts `stack/nodered/data` to `/data` in the container, so edits in the repo are reflected in Node-RED after a restart, and UI deploys write back to the same file. The directory mount avoids `EBUSY` errors during Node-RED's atomic save (it writes `flows.json.$$$` and renames it). If you change `flows.json`, run `docker compose -f stack/docker-compose.yml up -d nodered` then `docker compose -f stack/docker-compose.yml restart nodered` (or restart the container) to load the new flow, or use `bash scripts/helpers/reload_nodered.sh` to restart and verify the flow checksum. If Node-RED cannot write the file, ensure the host directory is writable by the container user.
 
 ## Important nuance (Mosquitto ACL)
 Mosquitto does **not** expand environment variables inside `acl`.
@@ -83,7 +87,7 @@ If you use an external MQTT simulator, it can run side by side with real devices
 2) ChirpStack waits for PostgreSQL and Redis before starting. If `docker compose logs chirpstack` shows `Connection refused`, verify `postgres` and `redis` are running and healthy.
 3) `docker compose logs chirpstack` should not show `operator class "gin_trgm_ops" does not exist for access method "gin"`.
 4) `docker compose logs zigbee2mqtt` should show a successful connection to the adapter and no repeated reconnect loops.
-5) Immediately after a fresh bootstrap, PostgreSQL may log `FATAL: database "chirpstack" does not exist` and `FATAL: database "poc_nodered" does not exist` before `init_postgres_users.sh` creates them. These messages should disappear once the script completes.
+5) If PostgreSQL bootstrap fails, `scripts/40_docker_up.sh` exits and tears down containers with `docker compose down` (volumes are preserved).
 
 ## Data persistence
 - PostgreSQL data persists across container restarts because it uses the `pg-data` named volume. It is only lost if the volume is removed (for example, `docker compose down -v`).

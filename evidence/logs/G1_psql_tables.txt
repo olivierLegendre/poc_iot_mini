@@ -1,0 +1,8 @@
+          List of relations
+ Schema |   Name    | Type  |  Owner  
+--------+-----------+-------+---------
+ poc    | commands  | table | nodered
+ poc    | devices   | table | nodered
+ poc    | telemetry | table | nodered
+(3 rows)
+

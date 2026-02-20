@@ -144,6 +144,14 @@ cp ~/Public/poc/stack/gateway-bridge/certs/ca.crt \
 - `tls: client didn't provide a certificate`:
   - one occurrence can be normal during manual `openssl s_client` checks
   - if it repeats continuously when the gateway tries to connect, verify gateway TLS/auth settings in F2
+- `Deduplication error: No channel found for frequency ...` in ChirpStack:
+  - this means ChirpStack region uplink channels do not match the gateway channel-plan
+  - for this PoC (EU868 8-channel), ensure `stack/chirpstack/chirpstack.toml` contains `regions.network` with:
+    - `enabled_uplink_channels=[0, 1, 2, 3, 4, 5, 6, 7]`
+    - `extra_channels` for `867100000`, `867300000`, `867500000`, `867700000`, `867900000`
+  - apply with:
+    - `bash scripts/15_render_configs.sh`
+    - `docker restart chirpstack`
 
 ----------------------------------------------
 

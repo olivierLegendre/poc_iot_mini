@@ -1,3 +1,6 @@
+-- Executed by scripts/42_init_postgres.sh with NODERED_PG_USER from stack/.env.
+\set ON_ERROR_STOP on
+
 CREATE SCHEMA IF NOT EXISTS poc;
 
 CREATE TABLE IF NOT EXISTS poc.devices (
@@ -11,6 +14,24 @@ CREATE TABLE IF NOT EXISTS poc.devices (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS devices_unique ON poc.devices(network, external_id);
+
+CREATE OR REPLACE FUNCTION poc.devices_external_id_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.external_id IS DISTINCT FROM OLD.external_id THEN
+    RAISE EXCEPTION 'external_id is immutable (old=%, new=%)', OLD.external_id, NEW.external_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_devices_external_id_immutable ON poc.devices;
+CREATE TRIGGER trg_devices_external_id_immutable
+BEFORE UPDATE OF external_id ON poc.devices
+FOR EACH ROW
+EXECUTE FUNCTION poc.devices_external_id_immutable();
 
 CREATE TABLE IF NOT EXISTS poc.telemetry (
   id BIGSERIAL PRIMARY KEY,
@@ -47,3 +68,21 @@ SELECT DISTINCT ON (d.id)
 FROM poc.devices d
 LEFT JOIN poc.telemetry t ON t.device_id = d.id
 ORDER BY d.id, t.ts DESC;
+
+SELECT format('GRANT USAGE ON SCHEMA poc TO %I', :'NODERED_PG_USER');
+\gexec
+
+SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA poc TO %I', :'NODERED_PG_USER');
+\gexec
+
+SELECT format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA poc TO %I', :'NODERED_PG_USER');
+\gexec
+
+SELECT format('GRANT EXECUTE ON FUNCTION poc.devices_external_id_immutable() TO %I', :'NODERED_PG_USER');
+\gexec
+
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA poc GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'NODERED_PG_USER');
+\gexec
+
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA poc GRANT USAGE, SELECT ON SEQUENCES TO %I', :'NODERED_PG_USER');
+\gexec

@@ -1,10 +1,16 @@
 -- ============================================================================
 -- ChirpStack required PostgreSQL extensions
 -- ============================================================================
--- Run against the chirpstack database.
+-- Run against the ChirpStack database.
+-- Executed by scripts/42_init_postgres.sh with CHIRPSTACK_PG_USER from stack/.env.
+-- ============================================================================
+
+\set ON_ERROR_STOP on
 
 CREATE SCHEMA IF NOT EXISTS chirpstack;
-ALTER SCHEMA chirpstack OWNER TO chirpstack;
+
+SELECT format('ALTER SCHEMA chirpstack OWNER TO %I', :'CHIRPSTACK_PG_USER');
+\gexec
 
 DO $$
 BEGIN
@@ -16,5 +22,8 @@ BEGIN
 END
 $$;
 
-GRANT USAGE, CREATE ON SCHEMA chirpstack TO chirpstack;
-ALTER ROLE chirpstack SET search_path = chirpstack, public;
+SELECT format('GRANT USAGE, CREATE ON SCHEMA chirpstack TO %I', :'CHIRPSTACK_PG_USER');
+\gexec
+
+SELECT format('ALTER ROLE %I SET search_path = chirpstack, public', :'CHIRPSTACK_PG_USER');
+\gexec

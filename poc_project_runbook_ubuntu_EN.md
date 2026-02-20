@@ -483,6 +483,7 @@ Prove joins and uplinks for two distinct DevEUIs. Keep AppKeys secure.
 
 - ChirpStack UI: device profiles (EU868), application, devices
 - MQTT topics: `application/+/device/+/event/up`
+- Device step-by-step (first sensor in this PoC): `devices/lora/DRAGINO_T68DL/README.md`
 
 **Action**
 
@@ -501,7 +502,9 @@ Prove joins and uplinks for two distinct DevEUIs. Keep AppKeys secure.
 **Commands**
 
 ```bash
-mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/Public/poc/evidence/logs/F4_lorawan_uplinks_mqtt.txt
+source ~/Public/poc/stack/.env
+mosquitto_sub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'application/+/device/+/event/up' -v \
+  | tee ~/Public/poc/evidence/logs/F4_lorawan_uplinks_mqtt.txt
 ```
 
 ### F5 — Confirmed downlink to LoRaWAN TRV (device-confirmed + physical observation if feasible)
@@ -557,8 +560,11 @@ Define canonical IDs: Zigbee IEEE address; LoRaWAN DevEUI. Upsert rules prevent 
 **Commands**
 
 ```bash
-psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dn" | tee ~/Public/poc/evidence/logs/G1_psql_schemas.txt
-psql -h localhost -U <PG_USER> -d <PG_DB> -c "\dt poc.*" | tee ~/Public/poc/evidence/logs/G1_psql_tables.txt
+source ~/Public/poc/stack/.env
+PGPASSWORD="$NODERED_PG_PASSWORD" psql -h localhost -U "$NODERED_PG_USER" -d "$NODERED_PG_DB" -c "\dn" \
+  | tee ~/Public/poc/evidence/logs/G1_psql_schemas.txt
+PGPASSWORD="$NODERED_PG_PASSWORD" psql -h localhost -U "$NODERED_PG_USER" -d "$NODERED_PG_DB" -c "\dt poc.*" \
+  | tee ~/Public/poc/evidence/logs/G1_psql_tables.txt
 ```
 
 **Code / Config**
@@ -627,9 +633,13 @@ This is the 'digital spine': all telemetry is captured, timestamped, and queryab
 
 ```bash
 # Watch both inputs on MQTT while generating messages
-mosquitto_sub -h localhost -t 'zigbee2mqtt/#' -v | tee ~/Public/poc/evidence/logs/G2_watch_zigbee.txt
+source ~/Public/poc/stack/.env
+mosquitto_sub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'zigbee2mqtt/#' -v \
+  | tee ~/Public/poc/evidence/logs/G2_watch_zigbee.txt
 # in another terminal:
-mosquitto_sub -h localhost -t 'application/+/device/+/event/up' -v | tee ~/Public/poc/evidence/logs/G2_watch_lora.txt
+source ~/Public/poc/stack/.env
+mosquitto_sub -h localhost -u "$MQTT_ADMIN_USER" -P "$MQTT_ADMIN_PASS" -t 'application/+/device/+/event/up' -v \
+  | tee ~/Public/poc/evidence/logs/G2_watch_lora.txt
 ```
 
 **Code / Config**

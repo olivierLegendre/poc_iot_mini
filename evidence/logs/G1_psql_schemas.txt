@@ -1,0 +1,7 @@
+      List of schemas
+  Name  |       Owner       
+--------+-------------------
+ poc    | nodered
+ public | pg_database_owner
+(2 rows)
+
