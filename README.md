@@ -23,6 +23,17 @@ Then:
 
 Note: `scripts/42_init_postgres.sh` is the PostgreSQL initialization entrypoint. It reconciles roles/databases/passwords from `stack/.env`, applies ChirpStack extensions, and applies the PoC schema SQL.
 
+## Additive Schema Foundation
+The PostgreSQL schema now includes additive tables for scalable device typing and mapping:
+
+- `poc.device_reference`
+- `poc.device_reference_capability`
+- `poc.device_reference_mapping`
+- `poc.device_mapping_candidate`
+- `poc.metrics`
+
+Current Node-RED behavior is unchanged: ingestion still writes to `poc.devices` and `poc.telemetry` (including raw payloads). The new tables are forward-compatible schema groundwork for a mapping/repository layer.
+
 ## One-shot setup
 You can run a single setup script from anywhere inside the repository:
 `bash scripts/setup_all.sh`
@@ -34,6 +45,18 @@ The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow
 - Subscribes to `zigbee2mqtt/#` and `application/+/device/+/event/#`.
 - Normalizes messages into a single envelope.
 - Upserts `poc.devices` and inserts `poc.telemetry` rows.
+- Uses `domain.*` / `repo.*` naming for ingest-layer separation (business logic vs data access).
+- Extracts all payload fields with dotted paths and upserts candidates into `poc.device_mapping_candidate`.
+- Optionally materializes mapped values into `poc.metrics` when:
+  - the device has `device_reference_id`,
+  - active mappings exist in `poc.device_reference_mapping`,
+  - and mapped source paths are present in the telemetry payload.
+- Uses `repo.dashboard.*` query builders and `domain.dashboard.*` formatters for dashboard read paths (instead of embedding SQL/format logic directly in function nodes).
+- Keeps `flows.json` Function nodes as thin wrappers (`repo.*` / `domain.*`), with implementation logic in `stack/nodered/data/lib/`.
+- Loads `domain` and `repo` implementations from external files:
+  - `stack/nodered/data/lib/domain/index.js`
+  - `stack/nodered/data/lib/repo/index.js`
+  configured via `functionGlobalContext` in `stack/nodered/data/settings.js`.
 - Does not own PostgreSQL bootstrap. Roles/databases/extensions/schema are initialized by `scripts/42_init_postgres.sh`.
 - Uses immutable canonical device IDs for `poc.devices.external_id`:
   - Zigbee: `ieee_address` (EUI-64).
