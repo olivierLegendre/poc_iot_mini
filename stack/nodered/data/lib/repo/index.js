@@ -19,6 +19,10 @@ function buildDeviceUpsertQuery(msg) {
     last_keys: Object.keys(p.metrics || {})
   };
 
+  if (p.referenceHints && typeof p.referenceHints === 'object') {
+    meta.reference_hints = p.referenceHints;
+  }
+
   msg.params = [p.source, p.deviceId, displayName, JSON.stringify(meta), p.ts];
   return msg;
 }
@@ -199,6 +203,616 @@ FROM jsonb_to_recordset($4::jsonb) AS r(
   return msg;
 }
 
+function buildDeviceReferenceSuggestionQuery(msg) {
+  const payload = (msg && typeof msg.payload === 'object' && msg.payload) ? msg.payload : {};
+  const params = [];
+  const filters = [];
+
+  if (payload.network === 'zigbee' || payload.network === 'lorawan') {
+    params.push(payload.network);
+    filters.push(`d.network = $${params.length}`);
+  }
+
+  if (payload.only_unlinked === true) {
+    filters.push('d.device_reference_id IS NULL');
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+  msg.query = `
+WITH device_base AS (
+  SELECT
+    d.id AS device_id,
+    d.network,
+    d.external_id,
+    d.display_name,
+    d.device_reference_id,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'zigbee'->>'definition_vendor'), '') AS zigbee_vendor,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'zigbee'->>'definition_model'), '') AS zigbee_model,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'zigbee'->>'friendly_name'), '') AS zigbee_friendly_name,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'zigbee'->>'model_id'), '') AS zigbee_model_id,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'zigbee'->>'manufacturer'), '') AS zigbee_manufacturer,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'lorawan'->>'device_profile_name'), '') AS lora_profile_name,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'lorawan'->>'device_profile_id'), '') AS lora_profile_id,
+    NULLIF(BTRIM(d.meta->'reference_hints'->'lorawan'->>'device_name'), '') AS lora_device_name
+  FROM poc.devices d
+  ${whereClause}
+), suggestion_base AS (
+  SELECT
+    db.device_id,
+    db.network,
+    db.external_id,
+    db.display_name,
+    db.device_reference_id,
+    CASE
+      WHEN db.network = 'zigbee' AND db.zigbee_vendor IS NOT NULL AND db.zigbee_model IS NOT NULL
+        THEN lower(db.zigbee_vendor) || '_' || lower(db.zigbee_model)
+      WHEN db.network = 'lorawan' AND db.lora_profile_name IS NOT NULL
+        THEN lower(db.lora_profile_name)
+      ELSE NULL
+    END AS suggested_reference_key,
+    CASE
+      WHEN db.network = 'zigbee'
+        THEN db.zigbee_vendor IS NOT NULL AND db.zigbee_model IS NOT NULL
+      WHEN db.network = 'lorawan'
+        THEN db.lora_profile_name IS NOT NULL
+      ELSE FALSE
+    END AS key_ready,
+    CASE
+      WHEN db.network = 'zigbee' AND db.zigbee_vendor IS NULL AND db.zigbee_model IS NULL
+        THEN 'missing definition.vendor and definition.model from zigbee reference hints'
+      WHEN db.network = 'zigbee' AND db.zigbee_vendor IS NULL
+        THEN 'missing definition.vendor from zigbee reference hints'
+      WHEN db.network = 'zigbee' AND db.zigbee_model IS NULL
+        THEN 'missing definition.model from zigbee reference hints'
+      WHEN db.network = 'lorawan' AND db.lora_profile_name IS NULL
+        THEN 'missing deviceProfileName from lorawan reference hints'
+      ELSE NULL
+    END AS blocked_reason,
+    jsonb_build_object(
+      'zigbee_vendor', db.zigbee_vendor,
+      'zigbee_model', db.zigbee_model,
+      'zigbee_model_id', db.zigbee_model_id,
+      'zigbee_manufacturer', db.zigbee_manufacturer,
+      'zigbee_friendly_name', db.zigbee_friendly_name,
+      'lorawan_profile_name', db.lora_profile_name,
+      'lorawan_profile_id', db.lora_profile_id,
+      'lorawan_device_name', db.lora_device_name
+    ) AS evidence
+  FROM device_base db
+)
+SELECT
+  sb.device_id,
+  sb.network,
+  sb.external_id,
+  sb.display_name,
+  sb.device_reference_id AS current_reference_id,
+  dr_current.reference_key AS current_reference_key,
+  dr_current.vendor AS current_reference_vendor,
+  dr_current.model AS current_reference_model,
+  sb.suggested_reference_key,
+  sb.key_ready,
+  sb.blocked_reason,
+  sb.evidence,
+  dr_match.id AS matched_reference_id,
+  dr_match.reference_key AS matched_reference_key,
+  dr_match.vendor AS matched_reference_vendor,
+  dr_match.model AS matched_reference_model
+FROM suggestion_base sb
+LEFT JOIN poc.device_reference dr_current
+  ON dr_current.id = sb.device_reference_id
+LEFT JOIN poc.device_reference dr_match
+  ON dr_match.network = sb.network
+ AND dr_match.reference_key = sb.suggested_reference_key
+ORDER BY sb.network, sb.external_id;
+`;
+  msg.params = params;
+  return msg;
+}
+
+function buildDeviceReferenceFindByKeyQuery(msg) {
+  const input = (msg && msg.deviceReferenceInput && typeof msg.deviceReferenceInput === 'object')
+    ? msg.deviceReferenceInput
+    : {};
+
+  if (!input.network || !input.reference_key) {
+    return null;
+  }
+
+  msg.query = `
+SELECT
+  dr.id,
+  dr.network,
+  dr.reference_key,
+  dr.vendor,
+  dr.model,
+  dr.active_mapping_version,
+  dr.mapping_file_path,
+  dr.meta->>'reference_display_name' AS reference_display_name,
+  dr.meta,
+  dr.created_at,
+  dr.updated_at
+FROM poc.device_reference dr
+WHERE dr.network = $1
+  AND dr.reference_key = $2
+LIMIT 1;
+`;
+  msg.params = [input.network, input.reference_key];
+  return msg;
+}
+
+function buildDeviceReferenceGetByIdQuery(msg) {
+  const input = (msg && msg.deviceReferenceInput && typeof msg.deviceReferenceInput === 'object')
+    ? msg.deviceReferenceInput
+    : {};
+
+  if (!Number.isInteger(input.id) || input.id <= 0) {
+    return null;
+  }
+
+  msg.query = `
+SELECT
+  dr.id,
+  dr.network,
+  dr.reference_key,
+  dr.vendor,
+  dr.model,
+  dr.active_mapping_version,
+  dr.mapping_file_path,
+  dr.meta->>'reference_display_name' AS reference_display_name,
+  dr.meta,
+  dr.created_at,
+  dr.updated_at
+FROM poc.device_reference dr
+WHERE dr.id = $1
+LIMIT 1;
+`;
+  msg.params = [input.id];
+  return msg;
+}
+
+function buildDeviceReferenceCreateQuery(msg) {
+  const input = (msg && msg.deviceReferenceInput && typeof msg.deviceReferenceInput === 'object')
+    ? msg.deviceReferenceInput
+    : {};
+
+  if (!input.network || !input.reference_key || !input.model || !input.reference_display_name) {
+    return null;
+  }
+
+  const capabilities = Array.isArray(input.capabilities) ? input.capabilities : [];
+  const capabilityRows = capabilities.map((capability) => ({ capability }));
+
+  const meta = {
+    ...(input.meta || {}),
+    reference_display_name: input.reference_display_name
+  };
+
+  msg.query = `
+WITH inserted AS (
+  INSERT INTO poc.device_reference (
+    network,
+    reference_key,
+    vendor,
+    model,
+    active_mapping_version,
+    mapping_file_path,
+    meta,
+    created_at,
+    updated_at
+  )
+  VALUES ($1, $2, $3, $4, 1, $5, COALESCE($6::jsonb, '{}'::jsonb), now(), now())
+  RETURNING
+    id,
+    network,
+    reference_key,
+    vendor,
+    model,
+    active_mapping_version,
+    mapping_file_path,
+    meta,
+    created_at,
+    updated_at
+), input_rows AS (
+  SELECT DISTINCT capability
+  FROM jsonb_to_recordset(COALESCE($7::jsonb, '[]'::jsonb))
+  AS r(capability text)
+  WHERE capability IN ('actuator', 'periodic_sensor', 'event_driven_sensor')
+), inserted_caps AS (
+  INSERT INTO poc.device_reference_capability (device_reference_id, capability, created_at)
+  SELECT inserted.id, input_rows.capability, now()
+  FROM inserted
+  JOIN input_rows ON TRUE
+  ON CONFLICT (device_reference_id, capability) DO NOTHING
+  RETURNING capability
+), caps AS (
+  SELECT
+    inserted.id AS device_reference_id,
+    COALESCE(
+      array_agg(inserted_caps.capability ORDER BY inserted_caps.capability) FILTER (WHERE inserted_caps.capability IS NOT NULL),
+      ARRAY[]::text[]
+    ) AS capabilities
+  FROM inserted
+  LEFT JOIN inserted_caps ON TRUE
+  GROUP BY inserted.id
+)
+SELECT
+  inserted.id,
+  inserted.network,
+  inserted.reference_key,
+  inserted.vendor,
+  inserted.model,
+  inserted.active_mapping_version,
+  inserted.mapping_file_path,
+  inserted.meta->>'reference_display_name' AS reference_display_name,
+  inserted.meta,
+  caps.capabilities,
+  inserted.created_at,
+  inserted.updated_at
+FROM inserted
+JOIN caps ON caps.device_reference_id = inserted.id;
+`;
+  msg.params = [
+    input.network,
+    input.reference_key,
+    input.vendor || null,
+    input.model,
+    input.mapping_file_path || null,
+    JSON.stringify(meta),
+    JSON.stringify(capabilityRows)
+  ];
+  return msg;
+}
+
+function buildDeviceReferenceUpdateQuery(msg) {
+  const input = (msg && msg.deviceReferenceInput && typeof msg.deviceReferenceInput === 'object')
+    ? msg.deviceReferenceInput
+    : {};
+
+  if (!Number.isInteger(input.id) || input.id <= 0 || !input.reference_display_name) {
+    return null;
+  }
+
+  const capabilitiesProvided = Array.isArray(input.capabilities);
+  const capabilityRows = capabilitiesProvided
+    ? input.capabilities.map((capability) => ({ capability }))
+    : [];
+
+  const meta = {
+    ...(input.meta || {}),
+    reference_display_name: input.reference_display_name
+  };
+
+  msg.query = `
+WITH updated AS (
+  UPDATE poc.device_reference
+  SET
+    vendor = COALESCE($2, vendor),
+    model = COALESCE($3, model),
+    mapping_file_path = COALESCE($4, mapping_file_path),
+    meta = COALESCE(poc.device_reference.meta, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+    updated_at = now()
+  WHERE id = $1
+  RETURNING
+    id,
+    network,
+    reference_key,
+    vendor,
+    model,
+    active_mapping_version,
+    mapping_file_path,
+    meta,
+    created_at,
+    updated_at
+), removed AS (
+  DELETE FROM poc.device_reference_capability
+  WHERE device_reference_id = $1
+    AND $6::boolean
+  RETURNING id
+), input_rows AS (
+  SELECT DISTINCT capability
+  FROM jsonb_to_recordset(COALESCE($7::jsonb, '[]'::jsonb))
+  AS r(capability text)
+  WHERE capability IN ('actuator', 'periodic_sensor', 'event_driven_sensor')
+), inserted_caps AS (
+  INSERT INTO poc.device_reference_capability (device_reference_id, capability, created_at)
+  SELECT $1, input_rows.capability, now()
+  FROM input_rows
+  WHERE $6::boolean
+  ON CONFLICT (device_reference_id, capability) DO NOTHING
+  RETURNING capability
+), cap_touch AS (
+  SELECT
+    COALESCE((SELECT count(*) FROM removed), 0) AS removed_count,
+    COALESCE((SELECT count(*) FROM inserted_caps), 0) AS inserted_count
+), existing_caps AS (
+  SELECT COALESCE(array_agg(c.capability ORDER BY c.capability), ARRAY[]::text[]) AS capabilities
+  FROM poc.device_reference_capability c
+  WHERE c.device_reference_id = $1
+), caps AS (
+  SELECT
+    CASE
+      WHEN $6::boolean THEN COALESCE((SELECT array_agg(capability ORDER BY capability) FROM input_rows), ARRAY[]::text[])
+      ELSE existing_caps.capabilities
+    END AS capabilities
+  FROM existing_caps
+  CROSS JOIN cap_touch
+)
+SELECT
+  updated.id,
+  updated.network,
+  updated.reference_key,
+  updated.vendor,
+  updated.model,
+  updated.active_mapping_version,
+  updated.mapping_file_path,
+  updated.meta->>'reference_display_name' AS reference_display_name,
+  updated.meta,
+  caps.capabilities,
+  updated.created_at,
+  updated.updated_at
+FROM updated
+JOIN caps ON TRUE;
+`;
+  msg.params = [
+    input.id,
+    input.vendor || null,
+    input.model || null,
+    input.mapping_file_path || null,
+    JSON.stringify(meta),
+    capabilitiesProvided,
+    JSON.stringify(capabilityRows)
+  ];
+  return msg;
+}
+
+function buildDeviceReferenceListQuery(msg) {
+  const payload = (msg && typeof msg.payload === 'object' && msg.payload) ? msg.payload : {};
+  const params = [];
+  const filters = [];
+
+  if (payload.network === 'zigbee' || payload.network === 'lorawan') {
+    params.push(payload.network);
+    filters.push(`dr.network = $${params.length}`);
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+  msg.query = `
+WITH caps AS (
+  SELECT
+    device_reference_id,
+    array_agg(capability ORDER BY capability) AS capabilities
+  FROM poc.device_reference_capability
+  GROUP BY device_reference_id
+)
+SELECT
+  dr.id,
+  dr.network,
+  dr.reference_key,
+  dr.vendor,
+  dr.model,
+  dr.active_mapping_version,
+  dr.mapping_file_path,
+  COALESCE(dr.meta->>'reference_display_name', dr.reference_key) AS reference_display_name,
+  dr.meta,
+  COALESCE(caps.capabilities, ARRAY[]::text[]) AS capabilities,
+  dr.created_at,
+  dr.updated_at
+FROM poc.device_reference dr
+LEFT JOIN caps ON caps.device_reference_id = dr.id
+${whereClause}
+ORDER BY dr.network, COALESCE(dr.meta->>'reference_display_name', dr.reference_key), dr.reference_key;
+`;
+  msg.params = params;
+  return msg;
+}
+
+function buildDeviceReferenceMappingFieldsQuery(msg) {
+  const input = (msg && msg.deviceReferenceMappingInput && typeof msg.deviceReferenceMappingInput === 'object')
+    ? msg.deviceReferenceMappingInput
+    : {};
+
+  if (!Number.isInteger(input.id) || input.id <= 0) {
+    return null;
+  }
+
+  msg.query = `
+WITH ref AS (
+  SELECT
+    dr.id,
+    dr.network,
+    dr.reference_key,
+    dr.active_mapping_version
+  FROM poc.device_reference dr
+  WHERE dr.id = $1
+), dev AS (
+  SELECT d.id
+  FROM poc.devices d
+  WHERE d.device_reference_id = $1
+), cand_ranked AS (
+  SELECT
+    c.id,
+    c.source_path,
+    c.inferred_data_type,
+    c.sample_value,
+    c.last_seen_at,
+    SUM(c.seen_count) OVER (PARTITION BY c.source_path) AS seen_count_total,
+    ROW_NUMBER() OVER (
+      PARTITION BY c.source_path
+      ORDER BY c.last_seen_at DESC NULLS LAST, c.id DESC
+    ) AS rn
+  FROM poc.device_mapping_candidate c
+  JOIN dev ON dev.id = c.device_id
+), cand AS (
+  SELECT
+    source_path,
+    inferred_data_type,
+    sample_value,
+    seen_count_total AS seen_count,
+    last_seen_at
+  FROM cand_ranked
+  WHERE rn = 1
+), map AS (
+  SELECT
+    m.id AS mapping_id,
+    m.source_path,
+    m.normalized_field,
+    m.role,
+    m.data_type,
+    m.unit,
+    m.is_active
+  FROM poc.device_reference_mapping m
+  JOIN ref ON ref.id = m.device_reference_id
+  WHERE m.mapping_version = ref.active_mapping_version
+), combined AS (
+  SELECT
+    COALESCE(cand.source_path, map.source_path) AS source_path,
+    cand.inferred_data_type,
+    cand.sample_value,
+    cand.seen_count,
+    cand.last_seen_at,
+    map.mapping_id,
+    map.normalized_field,
+    map.role,
+    map.data_type,
+    map.unit,
+    map.is_active
+  FROM cand
+  FULL OUTER JOIN map ON map.source_path = cand.source_path
+)
+SELECT
+  ref.id AS reference_id,
+  ref.network,
+  ref.reference_key,
+  ref.active_mapping_version,
+  combined.source_path,
+  combined.inferred_data_type,
+  combined.sample_value,
+  combined.seen_count,
+  combined.last_seen_at,
+  combined.mapping_id,
+  combined.normalized_field,
+  combined.role,
+  combined.data_type,
+  combined.unit,
+  combined.is_active
+FROM ref
+LEFT JOIN combined ON TRUE
+ORDER BY combined.source_path NULLS LAST;
+`;
+  msg.params = [input.id];
+  return msg;
+}
+
+function buildDeviceReferenceMappingsReplaceQuery(msg) {
+  const input = (msg && msg.deviceReferenceMappingInput && typeof msg.deviceReferenceMappingInput === 'object')
+    ? msg.deviceReferenceMappingInput
+    : {};
+  const mappings = Array.isArray(input.mappings) ? input.mappings : [];
+
+  if (!Number.isInteger(input.id) || input.id <= 0) {
+    return null;
+  }
+
+  msg.query = `
+WITH ref AS (
+  SELECT
+    dr.id,
+    dr.active_mapping_version
+  FROM poc.device_reference dr
+  WHERE dr.id = $1
+), deleted AS (
+  DELETE FROM poc.device_reference_mapping m
+  USING ref
+  WHERE m.device_reference_id = ref.id
+    AND m.mapping_version = ref.active_mapping_version
+  RETURNING m.id
+), deleted_touch AS (
+  SELECT COALESCE(count(*), 0) AS deleted_count
+  FROM deleted
+), input_rows AS (
+  SELECT *
+  FROM jsonb_to_recordset(COALESCE($2::jsonb, '[]'::jsonb))
+  AS r(
+    source_path text,
+    normalized_field text,
+    role text,
+    data_type text,
+    unit text,
+    is_active boolean,
+    transform_hint text,
+    meta jsonb
+  )
+), inserted AS (
+  INSERT INTO poc.device_reference_mapping (
+    device_reference_id,
+    mapping_version,
+    normalized_field,
+    source_path,
+    data_type,
+    unit,
+    role,
+    is_active,
+    transform_hint,
+    meta,
+    created_at,
+    updated_at
+  )
+  SELECT
+    ref.id,
+    ref.active_mapping_version,
+    input_rows.normalized_field,
+    input_rows.source_path,
+    input_rows.data_type,
+    NULLIF(input_rows.unit, ''),
+    input_rows.role,
+    COALESCE(input_rows.is_active, true),
+    NULLIF(input_rows.transform_hint, ''),
+    COALESCE(input_rows.meta, '{}'::jsonb),
+    now(),
+    now()
+  FROM ref
+  JOIN input_rows ON TRUE
+  CROSS JOIN deleted_touch
+  RETURNING
+    id,
+    source_path,
+    normalized_field,
+    role,
+    data_type,
+    unit,
+    is_active
+)
+SELECT
+  ref.id AS reference_id,
+  COALESCE(
+    (
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id', inserted.id,
+          'source_path', inserted.source_path,
+          'normalized_field', inserted.normalized_field,
+          'role', inserted.role,
+          'data_type', inserted.data_type,
+          'unit', inserted.unit,
+          'is_active', inserted.is_active
+        )
+        ORDER BY inserted.source_path
+      )
+      FROM inserted
+    ),
+    '[]'::jsonb
+  ) AS mappings
+FROM ref;
+`;
+  msg.params = [
+    input.id,
+    JSON.stringify(mappings)
+  ];
+  return msg;
+}
+
 function buildActivityCompleteQuery(msg, flow) {
   const rangeMap = {
     '1h': '1 hour',
@@ -230,20 +844,91 @@ ORDER BY bucket;`;
 }
 
 function buildAllDevicesQuery(msg) {
-  msg.query = `SELECT d.network,d.external_id,d.display_name,d.last_seen_at, t.ts AS last_ts, t.metrics
+  msg.query = `SELECT d.id AS device_id,
+       d.network,
+       d.external_id,
+       d.display_name,
+       d.last_seen_at,
+       d.device_reference_id,
+       dr.reference_key AS reference_key,
+       COALESCE(dr.meta->>'reference_display_name', dr.reference_key) AS reference_display_name,
+       t.ts AS last_ts,
+       t.metrics
 FROM poc.devices d
+LEFT JOIN poc.device_reference dr ON dr.id = d.device_reference_id
 LEFT JOIN poc.latest_telemetry t ON t.device_id = d.id
 ORDER BY d.network, d.external_id;`;
   msg.params = [];
   return msg;
 }
 
+function buildDeviceAssignReferenceQuery(msg) {
+  const input = (msg && msg.deviceReferenceLinkInput && typeof msg.deviceReferenceLinkInput === 'object')
+    ? msg.deviceReferenceLinkInput
+    : {};
+
+  const hasDeviceId = Number.isInteger(input.device_id) && input.device_id > 0;
+  const hasReferenceId = Number.isInteger(input.reference_id) && input.reference_id > 0;
+
+  if (!hasDeviceId || !hasReferenceId) {
+    return null;
+  }
+
+  msg.query = `
+UPDATE poc.devices d
+SET device_reference_id = $2
+WHERE d.id = $1
+RETURNING
+  d.id AS device_id,
+  d.network,
+  d.external_id,
+  d.display_name,
+  d.device_reference_id;
+`;
+  msg.params = [input.device_id, input.reference_id];
+  return msg;
+}
+
 function buildActuatorStatusQuery(msg) {
-  msg.query = `SELECT d.network,d.external_id,d.display_name, t.ts, t.metrics
-FROM poc.devices d
-LEFT JOIN poc.latest_telemetry t ON t.device_id = d.id
-WHERE d.external_id IN ('0xa4c1389274f470fa','a1a2a3a4a5a6a7a8')
-ORDER BY d.external_id;`;
+  msg.query = `WITH actuator_devices AS (
+  SELECT
+    d.id,
+    d.network,
+    d.external_id,
+    d.display_name,
+    EXISTS (
+      SELECT 1
+      FROM poc.device_reference_mapping drm
+      JOIN poc.device_reference drx ON drx.id = drm.device_reference_id
+      WHERE drx.id = d.device_reference_id
+        AND drm.mapping_version = drx.active_mapping_version
+        AND drm.is_active = true
+        AND drm.role = 'actuation'
+    ) AS has_actuation
+  FROM poc.devices d
+  JOIN poc.device_reference dr ON dr.id = d.device_reference_id
+  LEFT JOIN poc.device_reference_capability cap
+    ON cap.device_reference_id = dr.id
+   AND cap.capability = 'actuator'
+  LEFT JOIN poc.device_reference_mapping drm
+    ON drm.device_reference_id = dr.id
+   AND drm.mapping_version = dr.active_mapping_version
+   AND drm.is_active = true
+   AND drm.role = 'actuation'
+  WHERE cap.device_reference_id IS NOT NULL
+     OR drm.id IS NOT NULL
+  GROUP BY d.id, d.network, d.external_id, d.display_name, d.device_reference_id
+)
+SELECT
+  ad.network,
+  ad.external_id,
+  ad.display_name,
+  ad.has_actuation,
+  t.ts,
+  t.metrics
+FROM actuator_devices ad
+LEFT JOIN poc.latest_telemetry t ON t.device_id = ad.id
+ORDER BY ad.network, ad.external_id;`;
   msg.params = [];
   return msg;
 }
@@ -251,134 +936,178 @@ ORDER BY d.external_id;`;
 function buildToggleLookupQuery(msg) {
   const id = msg.payload;
   msg.targetDevice = id;
-  msg.query = `SELECT d.network,d.external_id,d.display_name,d.meta,t.metrics
+  msg.query = `SELECT
+  d.network,
+  d.external_id,
+  d.display_name,
+  d.meta,
+  t.metrics,
+  COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', drm.id,
+        'source_path', drm.source_path,
+        'normalized_field', drm.normalized_field,
+        'role', drm.role,
+        'data_type', drm.data_type
+      )
+      ORDER BY drm.id
+    ) FILTER (WHERE drm.id IS NOT NULL),
+    '[]'::jsonb
+  ) AS mappings
 FROM poc.devices d
-LEFT JOIN poc.latest_telemetry t ON t.device_id=d.id
-WHERE d.external_id=$1
+LEFT JOIN poc.latest_telemetry t ON t.device_id = d.id
+LEFT JOIN poc.device_reference dr ON dr.id = d.device_reference_id
+LEFT JOIN poc.device_reference_mapping drm
+  ON drm.device_reference_id = dr.id
+ AND drm.mapping_version = dr.active_mapping_version
+ AND drm.is_active = true
+ AND drm.role IN ('actuation', 'status')
+WHERE d.external_id = $1
+GROUP BY d.id, d.network, d.external_id, d.display_name, d.meta, t.metrics
 LIMIT 1;`;
   msg.params = [id];
   return msg;
 }
 
 function buildEventSensorChangesQuery(msg) {
-  msg.query = `WITH latest AS (
-  SELECT d.external_id, d.display_name, t.ts AS last_ts
+  msg.query = `WITH event_map AS (
+  SELECT
+    d.id AS device_id,
+    d.external_id,
+    d.display_name,
+    lt.ts AS last_ts,
+    drm.normalized_field AS metric_name
   FROM poc.devices d
-  LEFT JOIN poc.latest_telemetry t ON t.device_id = d.id
-  WHERE d.external_id IN ('0xf044d3fffe9171eb','1122334455667788')
+  JOIN poc.device_reference dr ON dr.id = d.device_reference_id
+  JOIN poc.device_reference_mapping drm
+    ON drm.device_reference_id = dr.id
+   AND drm.mapping_version = dr.active_mapping_version
+   AND drm.is_active = true
+   AND drm.role = 'event'
+  LEFT JOIN poc.latest_telemetry lt ON lt.device_id = d.id
+), latest AS (
+  SELECT DISTINCT
+    device_id,
+    external_id,
+    display_name,
+    last_ts
+  FROM event_map
 ), relevant AS (
-  SELECT d.external_id, t.ts,
-         CASE
-           WHEN d.external_id='0xf044d3fffe9171eb' THEN 'occupancy'
-           WHEN d.external_id='1122334455667788' THEN 'door_open'
-         END AS metric_key,
-         CASE
-           WHEN d.external_id='0xf044d3fffe9171eb' THEN t.metrics->>'occupancy'
-           WHEN d.external_id='1122334455667788' THEN COALESCE(t.metrics->>'door_open', t.metrics->'object'->>'door_open')
-         END AS metric_value
-  FROM poc.telemetry t
-  JOIN poc.devices d ON d.id=t.device_id
-  WHERE d.external_id IN ('0xf044d3fffe9171eb','1122334455667788')
-  UNION ALL
-  SELECT d.external_id, t.ts,
-         'motion' AS metric_key,
-         t.metrics->>'motion' AS metric_value
-  FROM poc.telemetry t
-  JOIN poc.devices d ON d.id=t.device_id
-  WHERE d.external_id='0xf044d3fffe9171eb'
+  SELECT
+    em.device_id,
+    em.external_id,
+    em.display_name,
+    em.metric_name,
+    m.ts,
+    COALESCE(
+      m.value_text,
+      CASE
+        WHEN m.value_boolean IS NULL THEN NULL
+        WHEN m.value_boolean THEN 'true'
+        ELSE 'false'
+      END,
+      CASE
+        WHEN m.value_number IS NULL THEN NULL
+        ELSE m.value_number::text
+      END,
+      m.value_json::text
+    ) AS metric_value
+  FROM event_map em
+  JOIN poc.metrics m
+    ON m.device_id = em.device_id
+   AND m.metric_name = em.metric_name
 ), diff AS (
-  SELECT external_id, metric_key, ts,
-         lag(metric_value) OVER (PARTITION BY external_id, metric_key ORDER BY ts) AS old_value,
-         metric_value AS new_value
+  SELECT
+    device_id,
+    external_id,
+    metric_name AS metric_key,
+    ts,
+    lag(metric_value) OVER (PARTITION BY device_id, metric_name ORDER BY ts) AS old_value,
+    metric_value AS new_value
   FROM relevant
   WHERE metric_value IS NOT NULL
 ), ranked AS (
-  SELECT *, row_number() OVER (PARTITION BY external_id ORDER BY ts DESC) AS rn
+  SELECT
+    *,
+    row_number() OVER (PARTITION BY device_id ORDER BY ts DESC) AS rn
   FROM diff
-  WHERE old_value IS NOT NULL AND old_value <> new_value
+  WHERE old_value IS NOT NULL
+    AND old_value <> new_value
 ), changes AS (
-  SELECT external_id, metric_key, old_value, new_value, ts
+  SELECT
+    device_id,
+    metric_key,
+    old_value,
+    new_value,
+    ts
   FROM ranked
   WHERE rn <= 5
 )
-SELECT l.external_id, l.display_name, l.last_ts, c.metric_key, c.old_value, c.new_value, c.ts
+SELECT
+  l.external_id,
+  l.display_name,
+  l.last_ts,
+  c.metric_key,
+  c.old_value,
+  c.new_value,
+  c.ts
 FROM latest l
-LEFT JOIN changes c ON c.external_id = l.external_id
+LEFT JOIN changes c
+  ON c.device_id = l.device_id
 ORDER BY l.external_id, c.ts DESC NULLS LAST;`;
   msg.params = [];
   return msg;
 }
 
-function buildPeriodicThQuery(msg, flow) {
+function buildPeriodicMetricsQuery(msg, flow) {
   const rangeMap = { '1h': '1 hour' };
   const range = flow.get('periodic_range') || '1h';
   const bucket = flow.get('periodic_bucket') || '1 minute';
   const interval = rangeMap[range] || '1 hour';
-  msg.query = `WITH candidate AS (
-  SELECT d.id
+  msg.query = `WITH mapped AS (
+  SELECT
+    d.id AS device_id,
+    d.external_id AS device_external_id,
+    COALESCE(d.display_name, d.external_id) AS device_label,
+    drm.normalized_field AS metric_name,
+    NULLIF(BTRIM(drm.unit), '') AS unit
   FROM poc.devices d
-  JOIN poc.latest_telemetry lt ON lt.device_id = d.id
-  WHERE d.network = 'zigbee'
-    AND (
-      lt.metrics ? 'temperature'
-      OR lt.metrics ? 'humidity'
-      OR (lt.metrics->'object') ? 'temperature_c'
-      OR (lt.metrics->'object') ? 'humidity_pct'
-    )
-  ORDER BY COALESCE(lt.ts, d.last_seen_at) DESC NULLS LAST
-  LIMIT 1
+  JOIN poc.device_reference dr ON dr.id = d.device_reference_id
+  JOIN poc.device_reference_capability cap
+    ON cap.device_reference_id = dr.id
+   AND cap.capability = 'periodic_sensor'
+  JOIN poc.device_reference_mapping drm
+    ON drm.device_reference_id = dr.id
+   AND drm.mapping_version = dr.active_mapping_version
+   AND drm.is_active = true
+   AND drm.role = 'metric'
+  WHERE lower(COALESCE(drm.data_type, '')) IN ('number', 'integer')
 ), base AS (
-  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
-         NULLIF(COALESCE(t.metrics->>'temperature', t.metrics->'object'->>'temperature_c'), '') AS temperature,
-         NULLIF(COALESCE(t.metrics->>'humidity', t.metrics->'object'->>'humidity_pct'), '') AS humidity,
-         t.ts
-  FROM poc.telemetry t
-  JOIN candidate c ON c.id = t.device_id
-  WHERE t.ts >= now() - interval '${interval}'
+  SELECT
+    date_bin(interval '${bucket}', m.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
+    mapped.device_external_id,
+    mapped.device_label,
+    mapped.metric_name,
+    mapped.unit,
+    m.value_number AS value
+  FROM poc.metrics m
+  JOIN mapped
+    ON mapped.device_id = m.device_id
+   AND mapped.metric_name = m.metric_name
+  WHERE m.ts >= now() - interval '${interval}'
+    AND m.value_number IS NOT NULL
 )
-SELECT bucket, 'temperature' AS series, avg((temperature)::double precision) AS value FROM base WHERE temperature IS NOT NULL GROUP BY bucket UNION ALL SELECT bucket, 'humidity' AS series, avg((humidity)::double precision) AS value FROM base WHERE humidity IS NOT NULL GROUP BY bucket
-ORDER BY bucket;`;
-  msg.params = [];
-  return msg;
-}
-
-function buildPeriodicLuxQuery(msg, flow) {
-  const rangeMap = { '1h': '1 hour' };
-  const range = flow.get('periodic_range') || '1h';
-  const bucket = flow.get('periodic_bucket') || '1 minute';
-  const interval = rangeMap[range] || '1 hour';
-  msg.query = `WITH base AS (
-  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
-       NULLIF(t.metrics->>'illuminance','') AS illuminance,
-       t.ts
-  FROM poc.telemetry t
-  JOIN poc.devices d ON d.id=t.device_id
-  WHERE d.external_id='0xa4c1384a6572348b'
-    AND t.ts >= now() - interval '${interval}'
-)
-SELECT bucket, 'illuminance' AS series, avg((illuminance)::double precision) AS value FROM base WHERE illuminance IS NOT NULL GROUP BY bucket
-ORDER BY bucket;`;
-  msg.params = [];
-  return msg;
-}
-
-function buildPeriodicDraginoQuery(msg, flow) {
-  const rangeMap = { '1h': '1 hour' };
-  const range = flow.get('periodic_range') || '1h';
-  const bucket = flow.get('periodic_bucket') || '1 minute';
-  const interval = rangeMap[range] || '1 hour';
-  msg.query = `WITH base AS (
-  SELECT date_bin(interval '${bucket}', t.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
-       NULLIF(COALESCE(t.metrics->>'temperature', t.metrics->'object'->>'temperature_c'), '') AS temperature,
-       NULLIF(COALESCE(t.metrics->>'humidity', t.metrics->'object'->>'humidity_pct'), '') AS humidity,
-       t.ts
-  FROM poc.telemetry t
-  JOIN poc.devices d ON d.id=t.device_id
-  WHERE d.external_id='0102030405060708'
-    AND t.ts >= now() - interval '${interval}'
-)
-SELECT bucket, 'temperature' AS series, avg((temperature)::double precision) AS value FROM base WHERE temperature IS NOT NULL GROUP BY bucket UNION ALL SELECT bucket, 'humidity' AS series, avg((humidity)::double precision) AS value FROM base WHERE humidity IS NOT NULL GROUP BY bucket
-ORDER BY bucket;`;
+SELECT
+  bucket,
+  device_external_id,
+  device_label,
+  metric_name,
+  unit,
+  avg(value) AS value
+FROM base
+GROUP BY bucket, device_external_id, device_label, metric_name, unit
+ORDER BY device_label, metric_name, bucket;`;
   msg.params = [];
   return msg;
 }
@@ -409,7 +1138,8 @@ ORDER BY d.network,d.external_id;`;
 
 module.exports = {
   devices: {
-    buildUpsertQuery: buildDeviceUpsertQuery
+    buildUpsertQuery: buildDeviceUpsertQuery,
+    buildAssignReferenceQuery: buildDeviceAssignReferenceQuery
   },
   telemetry: {
     buildInsertRawQuery: buildTelemetryInsertRawQuery
@@ -421,15 +1151,25 @@ module.exports = {
     buildMappingLookupQuery: buildMetricsMappingLookupQuery,
     buildInsertQuery: buildMetricsInsertQuery
   },
+  deviceReference: {
+    buildSuggestionQuery: buildDeviceReferenceSuggestionQuery,
+    buildFindByKeyQuery: buildDeviceReferenceFindByKeyQuery,
+    buildGetByIdQuery: buildDeviceReferenceGetByIdQuery,
+    buildCreateQuery: buildDeviceReferenceCreateQuery,
+    buildUpdateQuery: buildDeviceReferenceUpdateQuery,
+    buildListQuery: buildDeviceReferenceListQuery
+  },
+  deviceReferenceMapping: {
+    buildFieldsQuery: buildDeviceReferenceMappingFieldsQuery,
+    buildReplaceQuery: buildDeviceReferenceMappingsReplaceQuery
+  },
   dashboard: {
     buildActivityCompleteQuery,
     buildAllDevicesQuery,
     buildActuatorStatusQuery,
     buildToggleLookupQuery,
     buildEventSensorChangesQuery,
-    buildPeriodicThQuery,
-    buildPeriodicLuxQuery,
-    buildPeriodicDraginoQuery,
+    buildPeriodicMetricsQuery,
     buildBatteryStatusQuery
   }
 };

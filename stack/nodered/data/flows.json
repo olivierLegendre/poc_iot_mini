@@ -420,39 +420,11 @@
     {
         "id": "grp_periodic_th",
         "type": "ui-group",
-        "name": "zigbee_temp_humidity",
+        "name": "Periodic metrics by device",
         "page": "pg_periodic",
         "width": "12",
         "height": "",
         "order": 2,
-        "showTitle": true,
-        "className": "",
-        "visible": "true",
-        "disabled": "false",
-        "groupType": "default"
-    },
-    {
-        "id": "grp_periodic_lux",
-        "type": "ui-group",
-        "name": "hz_light_zigbee_01",
-        "page": "pg_periodic",
-        "width": "12",
-        "height": "",
-        "order": 3,
-        "showTitle": true,
-        "className": "",
-        "visible": "true",
-        "disabled": "false",
-        "groupType": "default"
-    },
-    {
-        "id": "grp_periodic_dragino",
-        "type": "ui-group",
-        "name": "l_temp_dragino_t68dl",
-        "page": "pg_periodic",
-        "width": "12",
-        "height": "",
-        "order": 4,
         "showTitle": true,
         "className": "",
         "visible": "true",
@@ -1179,7 +1151,7 @@
         "order": 1,
         "width": 12,
         "height": 0,
-        "format": "<template>\n  <div>\n    <h3>All devices with received data</h3>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Network</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">State/Data</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"row.device + row.network\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.device }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.network }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span v-if=\"row.lastTs\">\n            <span v-if=\"row.online\" style=\"color:#2e7d32;font-weight:600;\">Online ({{ fmtLocal(row.lastTs) }})</span>\n            <span v-else style=\"color:#c62828;font-weight:600;\">Offline (last seen {{ fmtLocal(row.lastTs) }})</span>\n          </span>\n          <span v-else>n/a</span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.summary }}</td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n",
+        "format": "<template>\n  <div>\n    <h3>All devices with received data</h3>\n\n    <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;\">\n      <button @click=\"refreshReferences\" :disabled=\"loadingReferences\">Refresh reference list</button>\n      <span v-if=\"loadingReferences\" style=\"color:#666;\">Loading references...</span>\n    </div>\n\n    <div v-if=\"error\" style=\"margin-bottom:10px;color:#c62828;font-weight:600;\">{{ error }}</div>\n    <div v-if=\"notice\" style=\"margin-bottom:10px;color:#2e7d32;font-weight:600;\">{{ notice }}</div>\n\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Network</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">State/Data</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device reference</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"String(row.deviceId)\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <div>{{ row.device }}</div>\n          <div style=\"color:#666;font-size:12px;\">external_id: {{ row.externalId }}</div>\n          <div style=\"color:#666;font-size:12px;\">device_id: {{ row.deviceId }}</div>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.network }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span v-if=\"row.lastTs\">\n            <span v-if=\"row.online\" style=\"color:#2e7d32;font-weight:600;\">Online ({{ fmtLocal(row.lastTs) }})</span>\n            <span v-else style=\"color:#c62828;font-weight:600;\">Offline (last seen {{ fmtLocal(row.lastTs) }})</span>\n          </span>\n          <span v-else>n/a</span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.summary }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:340px;\">\n          <div style=\"margin-bottom:6px;\">\n            <strong>Current:</strong> {{ referenceLabel(row) }}\n          </div>\n          <div style=\"display:flex;gap:6px;align-items:center;flex-wrap:wrap;\">\n            <select v-model=\"selectedReferenceByDevice[row.deviceId]\" style=\"flex:1 1 210px;\">\n              <option value=\"\">Select reference</option>\n              <option\n                v-for=\"ref in referencesFor(row.network)\"\n                :key=\"String(row.deviceId) + '-' + String(ref.id)\"\n                :value=\"String(ref.id)\"\n              >\n                {{ referenceOptionLabel(ref) }}\n              </option>\n            </select>\n            <button\n              @click=\"assignReference(row)\"\n              :disabled=\"loadingAssignDeviceId === row.deviceId || !canAssign(row)\"\n              :style=\"assignButtonStyle(row)\"\n            >\n              {{ assignButtonLabel(row) }}\n            </button>\n          </div>\n        </td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      loadingReferences: false,\n      loadingAssignDeviceId: null,\n      error: '',\n      notice: '',\n      references: [],\n      selectedReferenceByDevice: {}\n    };\n  },\n  computed: {\n    rows() {\n      return Array.isArray(this.msg && this.msg.payload) ? this.msg.payload : [];\n    }\n  },\n  watch: {\n    rows: {\n      handler() {\n        this.seedSelections();\n      },\n      deep: true,\n      immediate: true\n    }\n  },\n  mounted() {\n    this.refreshReferences();\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    },\n    referenceOptionLabel(ref) {\n      const display = ref && ref.referenceDisplayName ? String(ref.referenceDisplayName) : '';\n      const key = ref && ref.referenceKey ? String(ref.referenceKey) : '';\n      if (display && key && display !== key) {\n        return display + ' (' + key + ')';\n      }\n      return display || key || ('reference #' + String(ref && ref.id ? ref.id : 'n/a'));\n    },\n    referenceLabel(row) {\n      const display = row && row.currentReferenceDisplayName ? row.currentReferenceDisplayName : null;\n      const key = row && row.currentReferenceKey ? row.currentReferenceKey : null;\n      if (display && key && display !== key) {\n        return display + ' (' + key + ')';\n      }\n      if (display) {\n        return display;\n      }\n      if (key) {\n        return key;\n      }\n      return 'Unlinked';\n    },\n    referencesFor(network) {\n      return this.references.filter((ref) => ref.network === network);\n    },\n    seedSelections() {\n      for (const row of this.rows) {\n        const deviceId = row.deviceId;\n        if (!this.selectedReferenceByDevice[deviceId] && row.currentReferenceId) {\n          this.selectedReferenceByDevice[deviceId] = String(row.currentReferenceId);\n        }\n      }\n    },\n    selectedReferenceId(row) {\n      const raw = this.selectedReferenceByDevice[row.deviceId];\n      const n = Number(raw);\n      return Number.isInteger(n) && n > 0 ? n : null;\n    },\n    canAssign(row) {\n      const selected = this.selectedReferenceId(row);\n      if (!selected) {\n        return false;\n      }\n      const current = Number(row.currentReferenceId);\n      if (Number.isInteger(current) && current > 0 && current === selected) {\n        return false;\n      }\n      return true;\n    },\n    assignButtonLabel(row) {\n      const hasCurrent = Number.isInteger(Number(row.currentReferenceId)) && Number(row.currentReferenceId) > 0;\n      return hasCurrent ? 'Re-assign' : 'Assign';\n    },\n    assignButtonStyle(row) {\n      const enabled = this.loadingAssignDeviceId !== row.deviceId && this.canAssign(row);\n      if (enabled) {\n        return {\n          background: '#1565c0',\n          color: '#fff',\n          border: '1px solid #0d47a1',\n          borderRadius: '4px',\n          padding: '4px 10px',\n          cursor: 'pointer'\n        };\n      }\n      return {\n        background: '#e0e0e0',\n        color: '#757575',\n        border: '1px solid #c7c7c7',\n        borderRadius: '4px',\n        padding: '4px 10px',\n        cursor: 'not-allowed',\n        opacity: '0.95'\n      };\n    },\n    async requestJson(url, options = {}) {\n      const cfg = {\n        method: options.method || 'GET',\n        headers: { 'Content-Type': 'application/json' }\n      };\n      if (options.body !== undefined) {\n        cfg.body = JSON.stringify(options.body);\n      }\n\n      const response = await fetch(url, cfg);\n      let payload = null;\n      try {\n        payload = await response.json();\n      } catch (err) {\n        payload = null;\n      }\n\n      if (!response.ok) {\n        const message = payload && payload.error && payload.error.message ? payload.error.message : ('HTTP ' + response.status);\n        throw new Error(message);\n      }\n\n      return payload || { ok: true, data: null };\n    },\n    async refreshReferences() {\n      this.loadingReferences = true;\n      this.error = '';\n      try {\n        const res = await this.requestJson('/api/v1/device-references');\n        this.references = Array.isArray(res.data) ? res.data : [];\n        this.seedSelections();\n      } catch (err) {\n        this.error = err.message || 'Failed to load references';\n      } finally {\n        this.loadingReferences = false;\n      }\n    },\n    async assignReference(row) {\n      const deviceId = row.deviceId;\n      const referenceId = this.selectedReferenceId(row);\n\n      if (!referenceId) {\n        this.error = 'Please select a valid reference before assigning.';\n        return;\n      }\n\n      this.loadingAssignDeviceId = deviceId;\n      this.error = '';\n      this.notice = '';\n\n      try {\n        await this.requestJson('/api/v1/device-reference-links', {\n          method: 'POST',\n          body: {\n            device_id: deviceId,\n            reference_id: referenceId\n          }\n        });\n\n        const linkedRef = this.references.find((ref) => Number(ref.id) === referenceId) || null;\n        row.currentReferenceId = referenceId;\n        row.currentReferenceDisplayName = linkedRef ? (linkedRef.referenceDisplayName || null) : row.currentReferenceDisplayName;\n        row.currentReferenceKey = linkedRef ? (linkedRef.referenceKey || null) : row.currentReferenceKey;\n\n        this.notice = 'Device ' + deviceId + ' linked to reference ' + referenceId + '.';\n      } catch (err) {\n        this.error = err.message || 'Failed to assign reference';\n      } finally {\n        this.loadingAssignDeviceId = null;\n      }\n    }\n  }\n};\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
         "storeOutMessages": false,
         "resendOnRefresh": true,
         "templateScope": "local",
@@ -1199,7 +1171,7 @@
         "order": 1,
         "width": 12,
         "height": 0,
-        "format": "<template>\n  <div>\n    <h3>Actuator status</h3>\n    <section\n      v-for=\"item in items\"\n      :key=\"item.id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ item.label || item.id }}</strong><br/>\n      <template v-if=\"item.unavailable\">\n        No data\n      </template>\n      <template v-else>\n        <span v-if=\"item.online\" style=\"color:#2e7d32;font-weight:600;\">Status: Online (last seen {{ fmtLocal(item.lastTs) }})</span>\n        <span v-else style=\"color:#c62828;font-weight:600;\">Status: Offline (last seen {{ fmtLocal(item.lastTs) }})</span>\n        <div style=\"margin-top:4px;\">\n          <span style=\"margin-right:6px;\">Battery:</span>\n          <span :style=\"{ color: 'white', background: item.batteryColor, padding: '2px 8px', borderRadius: '10px' }\">{{ item.batteryText }}</span>\n        </div>\n      </template>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    items() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n",
+        "format": "<template>\n  <div>\n    <h3>Actuator status</h3>\n    <section\n      v-for=\"item in items\"\n      :key=\"item.id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ item.label || item.id }}</strong><br/>\n      <template v-if=\"item.unavailable\">\n        No data\n      </template>\n      <template v-else>\n        <span v-if=\"item.online\" style=\"color:#2e7d32;font-weight:600;\">Status: Online (last seen {{ fmtLocal(item.lastTs) }})</span>\n        <span v-else style=\"color:#c62828;font-weight:600;\">Status: Offline (last seen {{ fmtLocal(item.lastTs) }})</span>\n        <div style=\"margin-top:4px;\">\n          <span style=\"margin-right:6px;\">Battery:</span>\n          <span :style=\"{ color: 'white', background: item.batteryColor, padding: '2px 8px', borderRadius: '10px' }\">{{ item.batteryText }}</span>\n        </div>\n      </template>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    items() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
         "storeOutMessages": false,
         "resendOnRefresh": true,
         "templateScope": "local",
@@ -1219,7 +1191,7 @@
         "order": 1,
         "width": 12,
         "height": 0,
-        "format": "<template>\n  <div>\n    <h3>Last 5 status changes per device</h3>\n\n    <section\n      v-for=\"item in items\"\n      :key=\"item.id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ item.label || item.id }}</strong><br/>\n      <div style=\"margin:4px 0;\">\n        <span v-if=\"item.lastTs\">\n          <span v-if=\"item.online\" style=\"color:#2e7d32;font-weight:600;\">Status: Online</span>\n          <span v-else style=\"color:#c62828;font-weight:600;\">Status: Offline</span>\n          <span style=\"color:#666;\"> (last seen {{ fmtLocal(item.lastTs) }})</span>\n        </span>\n        <span v-else style=\"color:#666;\">Status: No data</span>\n      </div>\n      <div v-if=\"!item.events || item.events.length === 0\">No status change found yet.</div>\n      <ul v-else>\n        <li v-for=\"(e, idx) in item.events\" :key=\"item.id + '-' + idx\">\n          {{ e.metricKey }}: {{ e.oldValue }} -> {{ e.newValue }} at {{ fmtLocal(e.ts) }}\n        </li>\n      </ul>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    items() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>",
+        "format": "<template>\n  <div>\n    <h3>Last 5 status changes per device</h3>\n\n    <section\n      v-for=\"item in items\"\n      :key=\"item.id\"\n      style=\"margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <strong>{{ item.label || item.id }}</strong><br/>\n      <div style=\"margin:4px 0;\">\n        <span v-if=\"item.lastTs\">\n          <span v-if=\"item.online\" style=\"color:#2e7d32;font-weight:600;\">Status: Online</span>\n          <span v-else style=\"color:#c62828;font-weight:600;\">Status: Offline</span>\n          <span style=\"color:#666;\"> (last seen {{ fmtLocal(item.lastTs) }})</span>\n        </span>\n        <span v-else style=\"color:#666;\">Status: No data</span>\n      </div>\n      <div v-if=\"!item.events || item.events.length === 0\">No status change found yet.</div>\n      <ul v-else>\n        <li v-for=\"(e, idx) in item.events\" :key=\"item.id + '-' + idx\">\n          {{ e.metricKey }}: {{ e.oldValue }} -> {{ e.newValue }} at {{ fmtLocal(e.ts) }}\n        </li>\n      </ul>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    items() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
         "storeOutMessages": false,
         "resendOnRefresh": true,
         "templateScope": "local",
@@ -1239,7 +1211,7 @@
         "order": 1,
         "width": 12,
         "height": 0,
-        "format": "<template>\n  <div>\n    <h3>Battery and status (latest telemetry)</h3>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Battery</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Last data</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Warning</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"row.device\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.device }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span\n            :style=\"{ color: 'white', background: row.batteryColor, padding: '2px 8px', borderRadius: '10px' }\"\n          >\n            {{ row.batteryText }}\n          </span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span v-if=\"row.lastTs\">\n            <span v-if=\"row.online\" style=\"color:#2e7d32;font-weight:600;\">Online</span>\n            <span v-else style=\"color:#c62828;font-weight:600;\">Offline</span>\n          </span>\n          <span v-else style=\"color:#666;\">No data</span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ fmtLocal(row.lastTs) }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span :style=\"{ color: row.warningColor || '#666', fontWeight: row.warningColor ? '600' : 'normal' }\">{{ row.warning }}</span>\n        </td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n",
+        "format": "<template>\n  <div>\n    <h3>Battery and status (latest telemetry)</h3>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Battery</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Last data</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Warning</th>\n      </tr>\n      <tr v-for=\"row in rows\" :key=\"row.device\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.device }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span\n            :style=\"{ color: 'white', background: row.batteryColor, padding: '2px 8px', borderRadius: '10px' }\"\n          >\n            {{ row.batteryText }}\n          </span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span v-if=\"row.lastTs\">\n            <span v-if=\"row.online\" style=\"color:#2e7d32;font-weight:600;\">Online</span>\n            <span v-else style=\"color:#c62828;font-weight:600;\">Offline</span>\n          </span>\n          <span v-else style=\"color:#666;\">No data</span>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ fmtLocal(row.lastTs) }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <span :style=\"{ color: row.warningColor || '#666', fontWeight: row.warningColor ? '600' : 'normal' }\">{{ row.warning }}</span>\n        </td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    rows() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    }\n  }\n}\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
         "storeOutMessages": false,
         "resendOnRefresh": true,
         "templateScope": "local",
@@ -1248,84 +1220,6 @@
         "y": 1820,
         "wires": [
             []
-        ]
-    },
-    {
-        "id": "btn_toggle_zigbee_plug",
-        "type": "ui-button",
-        "z": "8350c63ee921963f",
-        "group": "grp_actuators_controls",
-        "name": "Toggle nous_a1z_01",
-        "label": "Toggle nous_a1z_01",
-        "order": 1,
-        "width": 6,
-        "height": 1,
-        "emulateClick": false,
-        "tooltip": "",
-        "color": "",
-        "bgcolor": "",
-        "className": "",
-        "icon": "power_settings_new",
-        "iconPosition": "left",
-        "payload": "0xa4c1389274f470fa",
-        "payloadType": "str",
-        "topic": "",
-        "topicType": "str",
-        "buttonColor": "",
-        "textColor": "",
-        "iconColor": "",
-        "enableClick": true,
-        "enablePointerdown": false,
-        "pointerdownPayload": "",
-        "pointerdownPayloadType": "str",
-        "enablePointerup": false,
-        "pointerupPayload": "",
-        "pointerupPayloadType": "str",
-        "x": 190,
-        "y": 1300,
-        "wires": [
-            [
-                "fn_prepare_toggle"
-            ]
-        ]
-    },
-    {
-        "id": "btn_toggle_lora_plug",
-        "type": "ui-button",
-        "z": "8350c63ee921963f",
-        "group": "grp_actuators_controls",
-        "name": "Toggle l_plug_milesight_ws513",
-        "label": "Toggle l_plug_milesight_ws513",
-        "order": 2,
-        "width": 6,
-        "height": 1,
-        "emulateClick": false,
-        "tooltip": "",
-        "color": "",
-        "bgcolor": "",
-        "className": "",
-        "icon": "power_settings_new",
-        "iconPosition": "left",
-        "payload": "a1a2a3a4a5a6a7a8",
-        "payloadType": "str",
-        "topic": "",
-        "topicType": "str",
-        "buttonColor": "",
-        "textColor": "",
-        "iconColor": "",
-        "enableClick": true,
-        "enablePointerdown": false,
-        "pointerdownPayload": "",
-        "pointerdownPayloadType": "str",
-        "enablePointerup": false,
-        "pointerupPayload": "",
-        "pointerupPayloadType": "str",
-        "x": 210,
-        "y": 1360,
-        "wires": [
-            [
-                "fn_prepare_toggle"
-            ]
         ]
     },
     {
@@ -1402,153 +1296,20 @@
     },
     {
         "id": "chart_periodic_th",
-        "type": "ui-chart",
+        "type": "ui-template",
         "z": "8350c63ee921963f",
         "group": "grp_periodic_th",
-        "name": "Temperature zigbee_temp_humidity",
-        "label": "Temperature",
+        "name": "Periodic metrics by device",
         "order": 1,
-        "chartType": "line",
-        "category": "topic",
-        "categoryType": "msg",
-        "xAxisLabel": "",
-        "xAxisProperty": "x",
-        "xAxisPropertyType": "property",
-        "xAxisType": "time",
-        "xAxisFormat": "",
-        "xAxisFormatType": "auto",
-        "xmin": "",
-        "xmax": "",
-        "yAxisLabel": "",
-        "yAxisProperty": "y",
-        "yAxisPropertyType": "property",
-        "ymin": "",
-        "ymax": "",
-        "bins": "",
-        "stackSeries": false,
-        "pointRadius": "",
-        "showLegend": true,
-        "removeOlder": "0",
-        "removeOlderUnit": "minute",
-        "removeOlderPoints": "",
-        "colors": [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728"
-        ],
-        "textColor": "",
-        "textColorDefault": true,
-        "gridColor": "",
-        "gridColorDefault": true,
-        "width": 12,
-        "height": 6,
+        "format": "<template>\n  <div>\n    <h3>Periodic metrics</h3>\n    <div v-if=\"!devices.length\" style=\"color:#666;\">No mapped periodic numeric metrics found.</div>\n\n    <section\n      v-for=\"device in devices\"\n      :key=\"device.deviceId\"\n      style=\"margin-bottom:14px;padding:10px;border:1px solid #ddd;border-radius:6px;\"\n    >\n      <h4 style=\"margin:0 0 8px 0;\">{{ device.deviceLabel }}</h4>\n      <div v-if=\"!device.metrics || device.metrics.length === 0\" style=\"color:#666;\">No numeric periodic metric for this device.</div>\n\n      <div\n        v-for=\"metric in device.metrics\"\n        :key=\"device.deviceId + '-' + metric.metricName + '-' + (metric.unit || '')\"\n        style=\"margin-bottom:12px;\"\n      >\n        <div style=\"display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;\">\n          <strong>{{ metricLabel(metric) }}</strong>\n          <span style=\"font-size:12px;color:#666;\">{{ latestLabel(metric.points) }}</span>\n        </div>\n        <svg\n          viewBox=\"0 0 100 44\"\n          width=\"100%\"\n          height=\"120\"\n          preserveAspectRatio=\"none\"\n          style=\"display:block;background:#fafbfc;border:1px solid #e1e5ea;border-radius:4px;\"\n        >\n          <polyline\n            :points=\"linePoints(metric.points)\"\n            fill=\"none\"\n            stroke=\"#1565c0\"\n            stroke-width=\"1.6\"\n            stroke-linecap=\"round\"\n            stroke-linejoin=\"round\"\n          ></polyline>\n        </svg>\n      </div>\n    </section>\n  </div>\n</template>\n\n<script>\nexport default {\n  computed: {\n    devices() {\n      return Array.isArray(this.msg?.payload) ? this.msg.payload : [];\n    }\n  },\n  methods: {\n    metricLabel(metric) {\n      if (!metric) return 'metric';\n      return metric.unit ? (metric.metricName + ' (' + metric.unit + ')') : metric.metricName;\n    },\n    latestLabel(points) {\n      const list = Array.isArray(points) ? points : [];\n      if (list.length === 0) return 'no points';\n      const last = list[list.length - 1];\n      if (!last || !Number.isFinite(Number(last.y))) return 'no points';\n      const value = Number(last.y);\n      const ts = last.x ? new Date(last.x).toLocaleString() : 'n/a';\n      return value.toFixed(2) + ' at ' + ts;\n    },\n    linePoints(points) {\n      const list = (Array.isArray(points) ? points : [])\n        .filter((p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)))\n        .map((p) => ({ x: Number(p.x), y: Number(p.y) }))\n        .sort((a, b) => a.x - b.x);\n      if (list.length === 0) {\n        return '';\n      }\n      if (list.length === 1) {\n        const y = 22;\n        return '0,' + y + ' 100,' + y;\n      }\n\n      let minX = list[0].x;\n      let maxX = list[list.length - 1].x;\n      let minY = list[0].y;\n      let maxY = list[0].y;\n\n      for (const p of list) {\n        if (p.y < minY) minY = p.y;\n        if (p.y > maxY) maxY = p.y;\n      }\n\n      if (maxX === minX) {\n        maxX = minX + 1;\n      }\n      if (maxY === minY) {\n        maxY = minY + 1;\n      }\n\n      const pointsText = list.map((p) => {\n        const x = ((p.x - minX) / (maxX - minX)) * 100;\n        const y = 42 - (((p.y - minY) / (maxY - minY)) * 40);\n        return x.toFixed(2) + ',' + y.toFixed(2);\n      });\n      return pointsText.join(' ');\n    }\n  }\n};\n</script>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
         "className": "",
-        "interpolation": "linear",
+        "width": 12,
+        "height": 0,
         "x": 2100,
         "y": 740,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "chart_periodic_lux",
-        "type": "ui-chart",
-        "z": "8350c63ee921963f",
-        "group": "grp_periodic_lux",
-        "name": "Histogram hz_light_zigbee_01",
-        "label": "Main metrics (time-series line)",
-        "order": 1,
-        "chartType": "line",
-        "category": "topic",
-        "categoryType": "msg",
-        "xAxisLabel": "",
-        "xAxisProperty": "x",
-        "xAxisPropertyType": "property",
-        "xAxisType": "time",
-        "xAxisFormat": "",
-        "xAxisFormatType": "auto",
-        "xmin": "",
-        "xmax": "",
-        "yAxisLabel": "",
-        "yAxisProperty": "y",
-        "yAxisPropertyType": "property",
-        "ymin": "",
-        "ymax": "",
-        "bins": "",
-        "stackSeries": false,
-        "pointRadius": "",
-        "showLegend": true,
-        "removeOlder": "0",
-        "removeOlderUnit": "minute",
-        "removeOlderPoints": "",
-        "colors": [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728"
-        ],
-        "textColor": "",
-        "textColorDefault": true,
-        "gridColor": "",
-        "gridColorDefault": true,
-        "width": 12,
-        "height": 6,
-        "className": "",
-        "interpolation": "linear",
-        "x": 2090,
-        "y": 800,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "chart_periodic_dragino",
-        "type": "ui-chart",
-        "z": "8350c63ee921963f",
-        "group": "grp_periodic_dragino",
-        "name": "Temperature l_temp_dragino_t68dl",
-        "label": "Temperature",
-        "order": 1,
-        "chartType": "line",
-        "category": "topic",
-        "categoryType": "msg",
-        "xAxisLabel": "",
-        "xAxisProperty": "x",
-        "xAxisPropertyType": "property",
-        "xAxisType": "time",
-        "xAxisFormat": "",
-        "xAxisFormatType": "auto",
-        "xmin": "",
-        "xmax": "",
-        "yAxisLabel": "",
-        "yAxisProperty": "y",
-        "yAxisPropertyType": "property",
-        "ymin": "",
-        "ymax": "",
-        "bins": "",
-        "stackSeries": false,
-        "pointRadius": "",
-        "showLegend": true,
-        "removeOlder": "0",
-        "removeOlderUnit": "minute",
-        "removeOlderPoints": "",
-        "colors": [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728"
-        ],
-        "textColor": "",
-        "textColorDefault": true,
-        "gridColor": "",
-        "gridColorDefault": true,
-        "width": 12,
-        "height": 6,
-        "className": "",
-        "interpolation": "linear",
-        "x": 2110,
-        "y": 880,
         "wires": [
             []
         ]
@@ -1711,7 +1472,8 @@
         "y": 1340,
         "wires": [
             [
-                "tpl_actuator_status"
+                "tpl_actuator_status",
+                "tpl_actuator_controls_dynamic"
             ]
         ]
     },
@@ -1922,7 +1684,7 @@
         "z": "8350c63ee921963f",
         "name": "domain.dashboard.trigger_periodic_queries",
         "func": "const domain = global.get('domain');\nif (!domain || !domain.dashboard || typeof domain.dashboard.triggerPeriodicQueries !== 'function') {\n  node.error('domain.dashboard.triggerPeriodicQueries is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.dashboard.triggerPeriodicQueries(msg);\n",
-        "outputs": 3,
+        "outputs": 1,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
@@ -1932,12 +1694,6 @@
         "wires": [
             [
                 "fn_q_periodic_th"
-            ],
-            [
-                "fn_q_periodic_lux"
-            ],
-            [
-                "fn_q_periodic_dragino"
             ]
         ]
     },
@@ -1945,8 +1701,8 @@
         "id": "fn_q_periodic_th",
         "type": "function",
         "z": "8350c63ee921963f",
-        "name": "repo.dashboard.build_periodic_th_query",
-        "func": "const repo = global.get('repo');\nif (!repo || !repo.dashboard || typeof repo.dashboard.buildPeriodicThQuery !== 'function') {\n  node.error('repo.dashboard.buildPeriodicThQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.dashboard.buildPeriodicThQuery(msg, flow);\n",
+        "name": "repo.dashboard.build_periodic_metrics_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.dashboard || typeof repo.dashboard.buildPeriodicMetricsQuery !== 'function') {\n  node.error('repo.dashboard.buildPeriodicMetricsQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.dashboard.buildPeriodicMetricsQuery(msg, flow);\n",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
@@ -1964,7 +1720,7 @@
         "id": "pg_q_periodic_th",
         "type": "postgresql",
         "z": "8350c63ee921963f",
-        "name": "Query periodic query (zigbee_temp_humidity)",
+        "name": "Query periodic metrics",
         "query": "",
         "postgreSQLConfig": "pg_cfg_1",
         "split": false,
@@ -1982,9 +1738,9 @@
         "id": "fn_chart_periodic_th",
         "type": "function",
         "z": "8350c63ee921963f",
-        "name": "domain.dashboard.build_periodic_th_chart",
-        "func": "const domain = global.get('domain');\nif (!domain || !domain.dashboard || typeof domain.dashboard.buildPeriodicThChart !== 'function') {\n  node.error('domain.dashboard.buildPeriodicThChart is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.dashboard.buildPeriodicThChart(msg);\n",
-        "outputs": 2,
+        "name": "domain.dashboard.format_periodic_charts_by_device",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.dashboard || typeof domain.dashboard.formatPeriodicChartsByDevice !== 'function') {\n  node.error('domain.dashboard.formatPeriodicChartsByDevice is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.dashboard.formatPeriodicChartsByDevice(msg);\n",
+        "outputs": 1,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
@@ -1994,125 +1750,6 @@
         "wires": [
             [
                 "chart_periodic_th"
-            ],
-            [
-                "chart_periodic_th_hum"
-            ]
-        ]
-    },
-    {
-        "id": "fn_q_periodic_lux",
-        "type": "function",
-        "z": "8350c63ee921963f",
-        "name": "repo.dashboard.build_periodic_lux_query",
-        "func": "const repo = global.get('repo');\nif (!repo || !repo.dashboard || typeof repo.dashboard.buildPeriodicLuxQuery !== 'function') {\n  node.error('repo.dashboard.buildPeriodicLuxQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.dashboard.buildPeriodicLuxQuery(msg, flow);\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 900,
-        "y": 800,
-        "wires": [
-            [
-                "pg_q_periodic_lux"
-            ]
-        ]
-    },
-    {
-        "id": "pg_q_periodic_lux",
-        "type": "postgresql",
-        "z": "8350c63ee921963f",
-        "name": "Query periodic query (0xa4c1384a6572348b)",
-        "query": "",
-        "postgreSQLConfig": "pg_cfg_1",
-        "split": false,
-        "rowsPerMsg": 1,
-        "outputs": 1,
-        "x": 1290,
-        "y": 800,
-        "wires": [
-            [
-                "fn_chart_periodic_lux"
-            ]
-        ]
-    },
-    {
-        "id": "fn_chart_periodic_lux",
-        "type": "function",
-        "z": "8350c63ee921963f",
-        "name": "domain.dashboard.build_periodic_grouped_chart",
-        "func": "const domain = global.get('domain');\nif (!domain || !domain.dashboard || typeof domain.dashboard.buildPeriodicGroupedChart !== 'function') {\n  node.error('domain.dashboard.buildPeriodicGroupedChart is not available in functionGlobalContext');\n  return null;\n}\nconst out = domain.dashboard.buildPeriodicGroupedChart(msg);\nif (Array.isArray(out)) {\n  for (const m of out) {\n    node.send(m);\n  }\n}\nreturn null;\n",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1700,
-        "y": 800,
-        "wires": [
-            [
-                "chart_periodic_lux"
-            ]
-        ]
-    },
-    {
-        "id": "fn_q_periodic_dragino",
-        "type": "function",
-        "z": "8350c63ee921963f",
-        "name": "repo.dashboard.build_periodic_dragino_query",
-        "func": "const repo = global.get('repo');\nif (!repo || !repo.dashboard || typeof repo.dashboard.buildPeriodicDraginoQuery !== 'function') {\n  node.error('repo.dashboard.buildPeriodicDraginoQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.dashboard.buildPeriodicDraginoQuery(msg, flow);\n",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 930,
-        "y": 880,
-        "wires": [
-            [
-                "pg_q_periodic_dragino"
-            ]
-        ]
-    },
-    {
-        "id": "pg_q_periodic_dragino",
-        "type": "postgresql",
-        "z": "8350c63ee921963f",
-        "name": "Query periodic query (l_temp_dragino_t68dl)",
-        "query": "",
-        "postgreSQLConfig": "pg_cfg_1",
-        "split": false,
-        "rowsPerMsg": 1,
-        "outputs": 1,
-        "x": 1310,
-        "y": 880,
-        "wires": [
-            [
-                "fn_chart_periodic_dragino"
-            ]
-        ]
-    },
-    {
-        "id": "fn_chart_periodic_dragino",
-        "type": "function",
-        "z": "8350c63ee921963f",
-        "name": "domain.dashboard.build_periodic_th_chart",
-        "func": "const domain = global.get('domain');\nif (!domain || !domain.dashboard || typeof domain.dashboard.buildPeriodicThChart !== 'function') {\n  node.error('domain.dashboard.buildPeriodicThChart is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.dashboard.buildPeriodicThChart(msg);\n",
-        "outputs": 2,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1730,
-        "y": 880,
-        "wires": [
-            [
-                "chart_periodic_dragino"
-            ],
-            [
-                "chart_periodic_dragino_hum"
             ]
         ]
     },
@@ -2298,108 +1935,6 @@
         ]
     },
     {
-        "id": "chart_periodic_th_hum",
-        "type": "ui-chart",
-        "z": "8350c63ee921963f",
-        "group": "grp_periodic_th",
-        "name": "Humidity zigbee_temp_humidity",
-        "label": "Humidity",
-        "order": 2,
-        "chartType": "line",
-        "category": "topic",
-        "categoryType": "msg",
-        "xAxisLabel": "",
-        "xAxisProperty": "x",
-        "xAxisPropertyType": "property",
-        "xAxisType": "time",
-        "xAxisFormat": "",
-        "xAxisFormatType": "auto",
-        "xmin": "",
-        "xmax": "",
-        "yAxisLabel": "",
-        "yAxisProperty": "y",
-        "yAxisPropertyType": "property",
-        "ymin": "",
-        "ymax": "",
-        "bins": "",
-        "stackSeries": false,
-        "pointRadius": "",
-        "showLegend": true,
-        "removeOlder": "0",
-        "removeOlderUnit": "minute",
-        "removeOlderPoints": "",
-        "colors": [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728"
-        ],
-        "textColor": "",
-        "textColorDefault": true,
-        "gridColor": "",
-        "gridColorDefault": true,
-        "width": 12,
-        "height": 6,
-        "className": "",
-        "interpolation": "linear",
-        "x": 2100,
-        "y": 810,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "chart_periodic_dragino_hum",
-        "type": "ui-chart",
-        "z": "8350c63ee921963f",
-        "group": "grp_periodic_dragino",
-        "name": "Humidity l_temp_dragino_t68dl",
-        "label": "Humidity",
-        "order": 2,
-        "chartType": "line",
-        "category": "topic",
-        "categoryType": "msg",
-        "xAxisLabel": "",
-        "xAxisProperty": "x",
-        "xAxisPropertyType": "property",
-        "xAxisType": "time",
-        "xAxisFormat": "",
-        "xAxisFormatType": "auto",
-        "xmin": "",
-        "xmax": "",
-        "yAxisLabel": "",
-        "yAxisProperty": "y",
-        "yAxisPropertyType": "property",
-        "ymin": "",
-        "ymax": "",
-        "bins": "",
-        "stackSeries": false,
-        "pointRadius": "",
-        "showLegend": true,
-        "removeOlder": "0",
-        "removeOlderUnit": "minute",
-        "removeOlderPoints": "",
-        "colors": [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728"
-        ],
-        "textColor": "",
-        "textColorDefault": true,
-        "gridColor": "",
-        "gridColorDefault": true,
-        "width": 12,
-        "height": 6,
-        "className": "",
-        "interpolation": "linear",
-        "x": 2110,
-        "y": 920,
-        "wires": [
-            []
-        ]
-    },
-    {
         "id": "domain_extract_all_fields",
         "type": "function",
         "z": "8350c63ee921963f",
@@ -2542,6 +2077,1264 @@
         "y": 220,
         "wires": [
             []
+        ]
+    },
+    {
+        "id": "pg_device_mapping",
+        "type": "ui-page",
+        "name": "Device Mapping",
+        "ui": "ui_base_2",
+        "path": "/device-mapping",
+        "icon": "account_tree",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 8,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "grp_device_mapping",
+        "type": "ui-group",
+        "name": "Device mapping",
+        "page": "pg_device_mapping",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "tpl_device_mapping",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_device_mapping",
+        "name": "Device mapping fields",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Device Mapping</h3>\n\n    <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;\">\n      <label style=\"display:flex;align-items:center;gap:6px;\">\n        Device reference:\n        <select v-model=\"selectedReferenceId\" @change=\"onReferenceChange\" style=\"min-width:320px;\">\n          <option value=\"\">Select reference</option>\n          <option v-for=\"ref in references\" :key=\"String(ref.id)\" :value=\"String(ref.id)\">\n            {{ referenceLabel(ref) }}\n          </option>\n        </select>\n      </label>\n      <button @click=\"refreshReferences\" :disabled=\"loadingReferences || loadingFields\" :style=\"buttonStyle(!loadingReferences && !loadingFields)\">Refresh</button>\n      <span v-if=\"loadingReferences || loadingFields\" style=\"color:#666;\">Loading...</span>\n    </div>\n\n    <div v-if=\"selectedReferenceMeta\" style=\"margin-bottom:8px;color:#555;\">\n      Selected: <strong>{{ selectedReferenceMeta.referenceKey }}</strong>\n      <span v-if=\"selectedReferenceMeta.network\">({{ selectedReferenceMeta.network }})</span>\n      <span v-if=\"selectedReferenceMeta.activeMappingVersion\">- mapping version {{ selectedReferenceMeta.activeMappingVersion }}</span>\n    </div>\n\n    <div v-if=\"error\" style=\"margin-bottom:10px;color:#c62828;font-weight:600;\">{{ error }}</div>\n    <div v-if=\"notice\" style=\"margin-bottom:10px;color:#2e7d32;font-weight:600;\">{{ notice }}</div>\n\n    <div v-if=\"!selectedReferenceId\" style=\"color:#666;\">Select a device reference to configure field mappings.</div>\n\n    <div v-if=\"selectedReferenceId\">\n      <table style=\"width:100%;border-collapse:collapse;\">\n        <tr>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Source field</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Inferred type</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Sample</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Role</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Normalized field</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Data type</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Unit</th>\n          <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Active</th>\n        </tr>\n        <tr v-for=\"field in fields\" :key=\"field.sourcePath\">\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n            <div>{{ field.sourcePath }}</div>\n            <div style=\"color:#777;font-size:12px;\" v-if=\"field.lastSeenAt\">last seen: {{ fmtLocal(field.lastSeenAt) }}</div>\n            <div style=\"color:#777;font-size:12px;\" v-if=\"field.seenCount !== null\">seen: {{ field.seenCount }}</div>\n          </td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ field.inferredDataType || 'n/a' }}</td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;max-width:280px;word-break:break-word;\">{{ samplePreview(field.sampleValue) }}</td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:160px;\">\n            <select v-model=\"field.role\" style=\"width:100%;\">\n              <option v-for=\"role in roleOptions\" :key=\"role.value\" :value=\"role.value\">{{ role.label }}</option>\n            </select>\n          </td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:170px;\">\n            <input v-model=\"field.normalizedField\" type=\"text\" :disabled=\"field.role === 'ignore'\" style=\"width:100%;\" />\n          </td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:150px;\">\n            <select v-model=\"field.dataType\" :disabled=\"field.role === 'ignore'\" style=\"width:100%;\">\n              <option v-for=\"dt in dataTypeOptions\" :key=\"dt\" :value=\"dt\">{{ dt }}</option>\n            </select>\n          </td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:120px;\">\n            <input v-model=\"field.unit\" type=\"text\" :disabled=\"field.role === 'ignore'\" style=\"width:100%;\" />\n          </td>\n          <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n            <input type=\"checkbox\" v-model=\"field.isActive\" :disabled=\"field.role === 'ignore'\" />\n          </td>\n        </tr>\n      </table>\n\n      <div style=\"margin-top:12px;display:flex;gap:10px;align-items:center;\">\n        <button @click=\"saveMappings\" :disabled=\"!canSaveMappings()\" :style=\"buttonStyle(canSaveMappings())\">Save mappings</button>\n        <span style=\"color:#666;\">Only fields with role different from <code>ignore</code> are saved.</span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      loadingReferences: false,\n      loadingFields: false,\n      saving: false,\n      error: '',\n      notice: '',\n      references: [],\n      selectedReferenceId: '',\n      selectedReferenceMeta: null,\n      fields: [],\n      roleOptions: [\n        { value: 'ignore', label: 'ignore' },\n        { value: 'metric', label: 'metric' },\n        { value: 'status', label: 'status' },\n        { value: 'battery', label: 'battery' },\n        { value: 'event', label: 'event' },\n        { value: 'actuation', label: 'actuation' },\n        { value: 'metadata', label: 'metadata' }\n      ],\n      dataTypeOptions: ['number', 'integer', 'boolean', 'text', 'json', 'timestamp']\n    };\n  },\n  mounted() {\n    this.refreshReferences();\n  },\n  methods: {\n    buttonStyle(enabled) {\n      if (enabled) {\n        return {\n          background: '#1565c0',\n          color: '#fff',\n          border: '1px solid #0d47a1',\n          borderRadius: '4px',\n          padding: '4px 10px',\n          cursor: 'pointer'\n        };\n      }\n      return {\n        background: '#e0e0e0',\n        color: '#757575',\n        border: '1px solid #c7c7c7',\n        borderRadius: '4px',\n        padding: '4px 10px',\n        cursor: 'not-allowed',\n        opacity: '0.95'\n      };\n    },\n    fmtLocal(ts) {\n      if (!ts) return 'n/a';\n      return new Date(ts).toLocaleString();\n    },\n    referenceLabel(ref) {\n      const display = ref && ref.referenceDisplayName ? String(ref.referenceDisplayName) : '';\n      const key = ref && ref.referenceKey ? String(ref.referenceKey) : '';\n      if (display && key && display !== key) {\n        return display + ' (' + key + ')';\n      }\n      return display || key || ('reference #' + String(ref && ref.id ? ref.id : 'n/a'));\n    },\n    defaultNormalizedField(sourcePath) {\n      const text = String(sourcePath || '').toLowerCase();\n      const slug = text.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');\n      return slug || 'field';\n    },\n    normalizeDataType(raw, inferred) {\n      const value = String(raw || '').trim().toLowerCase();\n      if (this.dataTypeOptions.includes(value)) {\n        return value;\n      }\n      const infer = String(inferred || '').trim().toLowerCase();\n      if (infer === 'number' || infer === 'integer' || infer === 'boolean' || infer === 'timestamp') {\n        return infer;\n      }\n      if (infer === 'object' || infer === 'array' || infer === 'json' || infer === 'null') {\n        return 'json';\n      }\n      return 'text';\n    },\n    samplePreview(value) {\n      if (value === null || value === undefined) {\n        return 'n/a';\n      }\n      if (typeof value === 'string') {\n        return value.length > 120 ? (value.slice(0, 120) + '...') : value;\n      }\n      try {\n        const text = JSON.stringify(value);\n        return text.length > 120 ? (text.slice(0, 120) + '...') : text;\n      } catch (err) {\n        return String(value);\n      }\n    },\n    normalizeFieldRows(rows) {\n      const list = Array.isArray(rows) ? rows : [];\n      return list.map((row) => {\n        const sourcePath = String(row.sourcePath || '');\n        const role = row.role && row.role !== 'ignore' ? String(row.role) : 'ignore';\n        return {\n          sourcePath,\n          inferredDataType: row.inferredDataType || null,\n          sampleValue: row.sampleValue,\n          seenCount: row.seenCount === null || row.seenCount === undefined ? null : Number(row.seenCount),\n          lastSeenAt: row.lastSeenAt || null,\n          mapped: Boolean(row.mapped),\n          mappingId: row.mappingId || null,\n          role,\n          normalizedField: row.normalizedField || this.defaultNormalizedField(sourcePath),\n          dataType: this.normalizeDataType(row.dataType, row.inferredDataType),\n          unit: row.unit || '',\n          isActive: row.isActive !== false\n        };\n      });\n    },\n    canSaveMappings() {\n      return Boolean(this.selectedReferenceId) && !this.saving && !this.loadingFields;\n    },\n    async requestJson(url, options = {}) {\n      const cfg = {\n        method: options.method || 'GET',\n        headers: { 'Content-Type': 'application/json' }\n      };\n      if (options.body !== undefined) {\n        cfg.body = JSON.stringify(options.body);\n      }\n\n      const response = await fetch(url, cfg);\n      let payload = null;\n      try {\n        payload = await response.json();\n      } catch (err) {\n        payload = null;\n      }\n\n      if (!response.ok) {\n        const message = payload && payload.error && payload.error.message ? payload.error.message : ('HTTP ' + response.status);\n        throw new Error(message);\n      }\n      return payload || { ok: true, data: null };\n    },\n    async refreshReferences() {\n      this.loadingReferences = true;\n      this.error = '';\n      try {\n        const res = await this.requestJson('/api/v1/device-references');\n        this.references = Array.isArray(res.data) ? res.data : [];\n        if (this.selectedReferenceId) {\n          const selected = this.references.find((ref) => String(ref.id) === String(this.selectedReferenceId));\n          if (!selected) {\n            this.selectedReferenceId = '';\n            this.selectedReferenceMeta = null;\n            this.fields = [];\n          }\n        }\n      } catch (err) {\n        this.error = err.message || 'Failed to load references';\n      } finally {\n        this.loadingReferences = false;\n      }\n    },\n    async onReferenceChange() {\n      await this.loadMappingFields();\n    },\n    async loadMappingFields() {\n      const id = Number(this.selectedReferenceId);\n      if (!Number.isInteger(id) || id <= 0) {\n        this.selectedReferenceMeta = null;\n        this.fields = [];\n        return;\n      }\n\n      this.loadingFields = true;\n      this.error = '';\n      this.notice = '';\n      try {\n        const res = await this.requestJson('/api/v1/device-references/' + id + '/mapping-fields');\n        const data = res && res.data ? res.data : null;\n        if (!data) {\n          this.selectedReferenceMeta = null;\n          this.fields = [];\n          return;\n        }\n\n        this.selectedReferenceMeta = {\n          referenceId: data.referenceId,\n          network: data.network,\n          referenceKey: data.referenceKey,\n          activeMappingVersion: data.activeMappingVersion\n        };\n        this.fields = this.normalizeFieldRows(data.fields);\n      } catch (err) {\n        this.error = err.message || 'Failed to load mapping fields';\n      } finally {\n        this.loadingFields = false;\n      }\n    },\n    buildMappingsPayload() {\n      const out = [];\n      const seenNormalized = new Set();\n\n      for (const field of this.fields) {\n        const role = String(field.role || '').trim();\n        if (!role || role === 'ignore') {\n          continue;\n        }\n\n        const normalizedField = this.defaultNormalizedField(field.normalizedField || field.sourcePath);\n        if (!normalizedField) {\n          throw new Error('normalized_field is required for selected mappings.');\n        }\n        if (seenNormalized.has(normalizedField)) {\n          throw new Error('normalized_field must be unique: ' + normalizedField);\n        }\n        seenNormalized.add(normalizedField);\n\n        out.push({\n          source_path: field.sourcePath,\n          normalized_field: normalizedField,\n          role,\n          data_type: this.normalizeDataType(field.dataType, field.inferredDataType),\n          unit: String(field.unit || '').trim() || null,\n          is_active: field.isActive !== false\n        });\n      }\n\n      return out;\n    },\n    async saveMappings() {\n      const id = Number(this.selectedReferenceId);\n      if (!Number.isInteger(id) || id <= 0) {\n        this.error = 'Please select a reference first.';\n        return;\n      }\n\n      this.saving = true;\n      this.error = '';\n      this.notice = '';\n      try {\n        const mappings = this.buildMappingsPayload();\n        await this.requestJson('/api/v1/device-references/' + id + '/mappings', {\n          method: 'PUT',\n          body: { mappings }\n        });\n        this.notice = 'Mappings updated for reference ' + id + '.';\n        await this.loadMappingFields();\n      } catch (err) {\n        this.error = err.message || 'Failed to save mappings';\n      } finally {\n        this.saving = false;\n      }\n    }\n  }\n};\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1300,
+        "y": 2060,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "api_in_ref_suggestions",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API GET /api/v1/device-references/suggestions",
+        "url": "/api/v1/device-references/suggestions",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 270,
+        "y": 2280,
+        "wires": [
+            [
+                "api_domain_parse_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_parse_ref_suggestions",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.parse_ref_suggestion_filters",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.parseDeviceReferenceSuggestionFilters !== 'function') {\n  node.error('domain.api.parseDeviceReferenceSuggestionFilters is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.api.parseDeviceReferenceSuggestionFilters(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 2280,
+        "wires": [
+            [
+                "api_repo_build_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_suggestions",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_suggestion_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildSuggestionQuery !== 'function') {\n  node.error('repo.deviceReference.buildSuggestionQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildSuggestionQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1020,
+        "y": 2280,
+        "wires": [
+            [
+                "api_repo_exec_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_suggestions",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_suggestion_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "200",
+        "outputs": 1,
+        "x": 1410,
+        "y": 2280,
+        "wires": [
+            [
+                "api_domain_format_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_suggestions",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.mapping.format_reference_suggestions",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.mapping || typeof domain.mapping.formatReferenceSuggestions !== 'function') {\n  node.error('domain.mapping.formatReferenceSuggestions is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.mapping.formatReferenceSuggestions(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1780,
+        "y": 2280,
+        "wires": [
+            [
+                "api_domain_wrap_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_wrap_ref_suggestions",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.wrap_ok",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.wrapApiData !== 'function') {\n  node.error('domain.api.wrapApiData is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2070,
+        "y": 2280,
+        "wires": [
+            [
+                "api_http_resp_ref_suggestions"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_suggestions",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response suggestions",
+        "statusCode": "",
+        "headers": {},
+        "x": 2350,
+        "y": 2280,
+        "wires": []
+    },
+    {
+        "id": "api_in_ref_list",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API GET /api/v1/device-references",
+        "url": "/api/v1/device-references",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 250,
+        "y": 2340,
+        "wires": [
+            [
+                "api_domain_parse_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_parse_ref_list",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.parse_ref_list_filters",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.parseDeviceReferenceListFilters !== 'function') {\n  node.error('domain.api.parseDeviceReferenceListFilters is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.api.parseDeviceReferenceListFilters(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 2340,
+        "wires": [
+            [
+                "api_repo_build_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_list",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_list_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildListQuery !== 'function') {\n  node.error('repo.deviceReference.buildListQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildListQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 2340,
+        "wires": [
+            [
+                "api_repo_exec_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_list",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_list_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "200",
+        "outputs": 1,
+        "x": 1370,
+        "y": 2340,
+        "wires": [
+            [
+                "api_domain_format_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_list",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.mapping.format_device_references",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.mapping || typeof domain.mapping.formatDeviceReferences !== 'function') {\n  node.error('domain.mapping.formatDeviceReferences is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.mapping.formatDeviceReferences(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1760,
+        "y": 2340,
+        "wires": [
+            [
+                "api_domain_wrap_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_wrap_ref_list",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.wrap_ok_list",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.wrapApiData !== 'function') {\n  node.error('domain.api.wrapApiData is not available in functionGlobalContext');\n  return null;\n}\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2050,
+        "y": 2340,
+        "wires": [
+            [
+                "api_http_resp_ref_list"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_list",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response references list",
+        "statusCode": "",
+        "headers": {},
+        "x": 2340,
+        "y": 2340,
+        "wires": []
+    },
+    {
+        "id": "api_in_ref_create",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API POST /api/v1/device-references",
+        "url": "/api/v1/device-references",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 250,
+        "y": 2460,
+        "wires": [
+            [
+                "api_json_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_json_ref_create",
+        "type": "json",
+        "z": "8350c63ee921963f",
+        "name": "JSON parse create",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 500,
+        "y": 2460,
+        "wires": [
+            [
+                "api_domain_validate_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_validate_ref_create",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.validate_create_request",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.normalizeApiDeviceReferenceCreateRequest !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api create helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.normalizeApiDeviceReferenceCreateRequest(msg);\nif (!msg || !msg.deviceReferenceValidation || !msg.deviceReferenceValidation.ok) {\n  const v = msg && msg.deviceReferenceValidation ? msg.deviceReferenceValidation : {};\n  msg = domain.api.setApiError(msg || {}, v.statusCode || 422, v.code || 'validation_failed', v.message || 'Invalid payload', v.details || []);\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 2460,
+        "wires": [
+            [
+                "api_repo_build_ref_find_for_create"
+            ],
+            [
+                "api_http_resp_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_find_for_create",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_find_by_key_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildFindByKeyQuery !== 'function') {\n  node.error('repo.deviceReference.buildFindByKeyQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildFindByKeyQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1260,
+        "y": 2460,
+        "wires": [
+            [
+                "api_repo_exec_ref_find_for_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_find_for_create",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_find_by_key_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1660,
+        "y": 2460,
+        "wires": [
+            [
+                "api_gate_ref_create_conflict"
+            ]
+        ]
+    },
+    {
+        "id": "api_gate_ref_create_conflict",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.reject_create_conflict",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api.setApiError is not available in functionGlobalContext');\n  return null;\n}\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (rows.length > 0) {\n  msg = domain.api.setApiError(msg, 409, 'reference_key_exists', 'A device reference with this network and reference_key already exists.');\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2050,
+        "y": 2460,
+        "wires": [
+            [
+                "api_repo_build_ref_create"
+            ],
+            [
+                "api_http_resp_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_create",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_create_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildCreateQuery !== 'function') {\n  node.error('repo.deviceReference.buildCreateQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildCreateQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2410,
+        "y": 2460,
+        "wires": [
+            [
+                "api_repo_exec_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_create",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_create_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 2770,
+        "y": 2460,
+        "wires": [
+            [
+                "api_domain_format_ref_created"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_created",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.format_single_reference_created",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.formatSingleDeviceReference !== 'function' || typeof domain.api.wrapApiData !== 'function') {\n  node.error('domain.api reference format helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.formatSingleDeviceReference(msg);\nif (!msg.payload) {\n  msg = domain.api.setApiError(msg || {}, 500, 'create_failed', 'Reference creation did not return a row.');\n  return msg;\n}\nif (!Array.isArray(msg.payload.capabilities)) {\n  msg.payload.capabilities = [];\n}\nreturn domain.api.wrapApiData(msg, 201);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 3180,
+        "y": 2460,
+        "wires": [
+            [
+                "api_http_resp_ref_create"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_create",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response create reference",
+        "statusCode": "",
+        "headers": {},
+        "x": 3500,
+        "y": 2460,
+        "wires": []
+    },
+    {
+        "id": "api_in_ref_update",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API PUT /api/v1/device-references/:id",
+        "url": "/api/v1/device-references/:id",
+        "method": "put",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 250,
+        "y": 2540,
+        "wires": [
+            [
+                "api_json_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_json_ref_update",
+        "type": "json",
+        "z": "8350c63ee921963f",
+        "name": "JSON parse update",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 500,
+        "y": 2540,
+        "wires": [
+            [
+                "api_domain_validate_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_validate_ref_update",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.validate_update_request",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.normalizeApiDeviceReferenceUpdateRequest !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api update helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.normalizeApiDeviceReferenceUpdateRequest(msg);\nif (!msg || !msg.deviceReferenceValidation || !msg.deviceReferenceValidation.ok) {\n  const v = msg && msg.deviceReferenceValidation ? msg.deviceReferenceValidation : {};\n  msg = domain.api.setApiError(msg || {}, v.statusCode || 422, v.code || 'validation_failed', v.message || 'Invalid payload', v.details || []);\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 2540,
+        "wires": [
+            [
+                "api_repo_build_ref_get_for_update"
+            ],
+            [
+                "api_http_resp_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_get_for_update",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_get_by_id_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildGetByIdQuery !== 'function') {\n  node.error('repo.deviceReference.buildGetByIdQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildGetByIdQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1260,
+        "y": 2540,
+        "wires": [
+            [
+                "api_repo_exec_ref_get_for_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_get_for_update",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_get_by_id_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1660,
+        "y": 2540,
+        "wires": [
+            [
+                "api_gate_ref_update_exists"
+            ]
+        ]
+    },
+    {
+        "id": "api_gate_ref_update_exists",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.ensure_update_target_exists",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api.setApiError is not available in functionGlobalContext');\n  return null;\n}\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (rows.length === 0) {\n  msg = domain.api.setApiError(msg, 404, 'reference_not_found', 'No device reference exists for the provided id.');\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2050,
+        "y": 2540,
+        "wires": [
+            [
+                "api_repo_build_ref_update"
+            ],
+            [
+                "api_http_resp_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_update",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_update_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildUpdateQuery !== 'function') {\n  node.error('repo.deviceReference.buildUpdateQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildUpdateQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2410,
+        "y": 2540,
+        "wires": [
+            [
+                "api_repo_exec_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_update",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_update_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 2770,
+        "y": 2540,
+        "wires": [
+            [
+                "api_domain_format_ref_updated"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_updated",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.format_single_reference_updated",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.formatSingleDeviceReference !== 'function' || typeof domain.api.wrapApiData !== 'function') {\n  node.error('domain.api reference format helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.formatSingleDeviceReference(msg);\nif (!msg.payload) {\n  msg = domain.api.setApiError(msg || {}, 500, 'update_failed', 'Reference update did not return a row.');\n  return msg;\n}\nif (!Array.isArray(msg.payload.capabilities)) {\n  msg.payload.capabilities = [];\n}\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 3180,
+        "y": 2540,
+        "wires": [
+            [
+                "api_http_resp_ref_update"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_update",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response update reference",
+        "statusCode": "",
+        "headers": {},
+        "x": 3500,
+        "y": 2540,
+        "wires": []
+    },
+    {
+        "id": "api_in_ref_link",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API POST /api/v1/device-reference-links",
+        "url": "/api/v1/device-reference-links",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 250,
+        "y": 2640,
+        "wires": [
+            [
+                "api_json_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_json_ref_link",
+        "type": "json",
+        "z": "8350c63ee921963f",
+        "name": "JSON parse link",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 500,
+        "y": 2640,
+        "wires": [
+            [
+                "api_domain_validate_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_validate_ref_link",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.validate_link_request",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.normalizeDeviceReferenceLinkInput !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api link helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.normalizeDeviceReferenceLinkInput(msg);\nif (!msg || !msg.deviceReferenceLinkValidation || !msg.deviceReferenceLinkValidation.ok) {\n  const v = msg && msg.deviceReferenceLinkValidation ? msg.deviceReferenceLinkValidation : {};\n  msg = domain.api.setApiError(msg || {}, v.statusCode || 422, v.code || 'validation_failed', v.message || 'Invalid payload', v.details || []);\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 2640,
+        "wires": [
+            [
+                "api_ref_link_prepare_lookup"
+            ],
+            [
+                "api_http_resp_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_ref_link_prepare_lookup",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.prepare_link_reference_lookup",
+        "func": "const input = msg && msg.deviceReferenceLinkInput ? msg.deviceReferenceLinkInput : null;\nif (!input || !Number.isInteger(input.reference_id)) {\n  return null;\n}\nmsg.deviceReferenceInput = { id: input.reference_id };\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1260,
+        "y": 2640,
+        "wires": [
+            [
+                "api_repo_build_ref_get_for_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_get_for_link",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.build_get_by_id_query_link",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReference || typeof repo.deviceReference.buildGetByIdQuery !== 'function') {\n  node.error('repo.deviceReference.buildGetByIdQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReference.buildGetByIdQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1660,
+        "y": 2640,
+        "wires": [
+            [
+                "api_repo_exec_ref_get_for_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_get_for_link",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReference.execute_get_by_id_query_link",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 2060,
+        "y": 2640,
+        "wires": [
+            [
+                "api_gate_ref_link_reference_exists"
+            ]
+        ]
+    },
+    {
+        "id": "api_gate_ref_link_reference_exists",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.ensure_link_reference_exists",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api.setApiError is not available in functionGlobalContext');\n  return null;\n}\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (rows.length === 0) {\n  msg = domain.api.setApiError(msg, 404, 'reference_not_found', 'No device reference exists for reference_id.');\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2470,
+        "y": 2640,
+        "wires": [
+            [
+                "api_repo_build_device_assign_ref"
+            ],
+            [
+                "api_http_resp_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_device_assign_ref",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.devices.build_assign_reference_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.devices || typeof repo.devices.buildAssignReferenceQuery !== 'function') {\n  node.error('repo.devices.buildAssignReferenceQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.devices.buildAssignReferenceQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2870,
+        "y": 2640,
+        "wires": [
+            [
+                "api_repo_exec_device_assign_ref"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_device_assign_ref",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.devices.execute_assign_reference_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 3240,
+        "y": 2640,
+        "wires": [
+            [
+                "api_gate_ref_link_device_exists"
+            ]
+        ]
+    },
+    {
+        "id": "api_gate_ref_link_device_exists",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.ensure_link_device_exists",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api.setApiError is not available in functionGlobalContext');\n  return null;\n}\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (rows.length === 0) {\n  msg = domain.api.setApiError(msg, 404, 'device_not_found', 'No device exists for device_id.');\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 3630,
+        "y": 2640,
+        "wires": [
+            [
+                "api_wrap_ref_link_success"
+            ],
+            [
+                "api_http_resp_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_wrap_ref_link_success",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.wrap_link_success",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.wrapApiData !== 'function') {\n  node.error('domain.api.wrapApiData is not available in functionGlobalContext');\n  return null;\n}\nconst row = Array.isArray(msg.payload) ? msg.payload[0] : null;\nmsg.payload = row ? {\n  deviceId: row.device_id,\n  network: row.network,\n  externalId: row.external_id,\n  displayName: row.display_name || row.external_id,\n  referenceId: row.device_reference_id\n} : null;\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 3960,
+        "y": 2640,
+        "wires": [
+            [
+                "api_http_resp_ref_link"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_link",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response device-reference link",
+        "statusCode": "",
+        "headers": {},
+        "x": 4250,
+        "y": 2640,
+        "wires": []
+    },
+    {
+        "id": "pg_device_references",
+        "type": "ui-page",
+        "name": "Device References",
+        "ui": "ui_base_2",
+        "path": "/devices-references",
+        "icon": "table_rows",
+        "layout": "grid",
+        "theme": "ca605794700c8eb2",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 9,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "grp_device_references",
+        "type": "ui-group",
+        "name": "Device references",
+        "page": "pg_device_references",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "tpl_device_references",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_device_references",
+        "name": "Device references manager",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Device References</h3>\n\n    <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;\">\n      <label>\n        Network:\n        <select v-model=\"networkFilter\" style=\"margin-left:6px;\">\n          <option value=\"\">All</option>\n          <option value=\"zigbee\">zigbee</option>\n          <option value=\"lorawan\">lorawan</option>\n        </select>\n      </label>\n      <label style=\"display:flex;align-items:center;gap:6px;\">\n        <input type=\"checkbox\" v-model=\"onlyUnlinked\" />\n        Only unlinked devices\n      </label>\n      <button @click=\"refreshAll\" :disabled=\"loading\" :style=\"buttonStyle(!loading)\">Refresh</button>\n      <span v-if=\"loading\" style=\"color:#666;\">Loading...</span>\n    </div>\n\n    <div v-if=\"error\" style=\"margin-bottom:10px;color:#c62828;font-weight:600;\">{{ error }}</div>\n    <div v-if=\"notice\" style=\"margin-bottom:10px;color:#2e7d32;font-weight:600;\">{{ notice }}</div>\n\n    <h4 style=\"margin:8px 0;\">Reference suggestions</h4>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Device</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Network</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Suggested key</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Status</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Reason</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Reference</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Action</th>\n      </tr>\n      <tr v-for=\"row in suggestions\" :key=\"row.deviceId\" style=\"vertical-align:top;\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <div><strong>{{ row.displayName || row.externalId }}</strong></div>\n          <div style=\"color:#666;font-size:12px;\">external_id: {{ row.externalId }}</div>\n          <div style=\"color:#666;font-size:12px;\">device_id: {{ row.deviceId }}</div>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.network }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.suggestedReferenceKey || 'n/a' }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.suggestionStatus }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ row.reason }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:220px;\">\n          <select v-model=\"selectedReferenceByDevice[row.deviceId]\" style=\"width:100%;\">\n            <option value=\"\">Select reference</option>\n            <option\n              v-for=\"ref in referencesFor(row.network)\"\n              :key=\"String(row.deviceId) + '-' + String(ref.id)\"\n              :value=\"String(ref.id)\"\n            >\n              {{ ref.referenceDisplayName }} ({{ ref.referenceKey }})\n            </option>\n          </select>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:380px;\">\n          <div style=\"display:flex;gap:6px;flex-wrap:wrap;align-items:center;\">\n            <button\n              @click=\"linkSelected(row.deviceId)\"\n              :disabled=\"!canLinkSelected(row)\"\n              :style=\"buttonStyle(canLinkSelected(row))\"\n            >\n              Link selected\n            </button>\n          </div>\n          <div\n            v-if=\"row.suggestionStatus === 'suggest_create_reference'\"\n            style=\"margin-top:8px;border:1px solid #ddd;border-radius:6px;padding:8px;\"\n          >\n            <div style=\"margin-bottom:6px;\">\n              <input\n                v-model=\"createDisplayNameByDevice[row.deviceId]\"\n                type=\"text\"\n                placeholder=\"reference_display_name\"\n                style=\"width:100%;\"\n              />\n            </div>\n            <div style=\"margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap;\">\n              <label v-for=\"cap in capabilityOptions\" :key=\"String(row.deviceId) + '-new-' + cap\" style=\"display:flex;align-items:center;gap:4px;\">\n                <input type=\"checkbox\" :value=\"cap\" v-model=\"createCapabilitiesByDevice[row.deviceId]\" />\n                {{ cap }}\n              </label>\n            </div>\n            <button @click=\"createAndLink(row)\" :disabled=\"!canCreateAndLink(row)\" :style=\"buttonStyle(canCreateAndLink(row))\">Create + Link</button>\n          </div>\n        </td>\n      </tr>\n    </table>\n\n    <h4 style=\"margin:16px 0 8px;\">Existing references</h4>\n    <table style=\"width:100%;border-collapse:collapse;\">\n      <tr>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">ID</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Network</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Reference key</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Vendor</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Model</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Display name</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Capabilities</th>\n        <th style=\"text-align:left;border-bottom:1px solid #ccc;\">Action</th>\n      </tr>\n      <tr v-for=\"ref in references\" :key=\"ref.id\">\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ ref.id }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ ref.network }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ ref.referenceKey }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ ref.vendor || 'n/a' }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">{{ ref.model || 'n/a' }}</td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:180px;\">\n          <input v-model=\"editDisplayNameByRef[ref.id]\" type=\"text\" style=\"width:100%;\" />\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;min-width:250px;\">\n          <div style=\"display:flex;gap:10px;flex-wrap:wrap;\">\n            <label v-for=\"cap in capabilityOptions\" :key=\"String(ref.id) + '-edit-' + cap\" style=\"display:flex;align-items:center;gap:4px;\">\n              <input type=\"checkbox\" :value=\"cap\" v-model=\"editCapabilitiesByRef[ref.id]\" />\n              {{ cap }}\n            </label>\n          </div>\n        </td>\n        <td style=\"padding:6px 4px;border-bottom:1px solid #eee;\">\n          <button @click=\"saveReference(ref)\" :disabled=\"!canSaveReference(ref)\" :style=\"buttonStyle(canSaveReference(ref))\">Save</button>\n        </td>\n      </tr>\n    </table>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      loading: false,\n      error: '',\n      notice: '',\n      networkFilter: '',\n      onlyUnlinked: false,\n      refreshTimer: null,\n      suggestions: [],\n      references: [],\n      selectedReferenceByDevice: {},\n      createDisplayNameByDevice: {},\n      createCapabilitiesByDevice: {},\n      editDisplayNameByRef: {},\n      editCapabilitiesByRef: {},\n      capabilityOptions: ['actuator', 'periodic_sensor', 'event_driven_sensor']\n    };\n  },\n  mounted() {\n    this.refreshAll();\n  },\n  unmounted() {\n    if (this.refreshTimer) {\n      clearTimeout(this.refreshTimer);\n      this.refreshTimer = null;\n    }\n  },\n  watch: {\n    networkFilter() {\n      this.scheduleRefresh();\n    },\n    onlyUnlinked() {\n      this.scheduleRefresh();\n    }\n  },\n  methods: {\n    normalizeCapabilities(raw) {\n      const arr = Array.isArray(raw) ? raw : [];\n      const allowed = new Set(this.capabilityOptions);\n      const out = [];\n      const seen = new Set();\n      for (const item of arr) {\n        if (!allowed.has(item) || seen.has(item)) continue;\n        seen.add(item);\n        out.push(item);\n      }\n      return out;\n    },\n    buttonStyle(enabled) {\n      if (enabled) {\n        return {\n          background: '#1565c0',\n          color: '#fff',\n          border: '1px solid #0d47a1',\n          borderRadius: '4px',\n          padding: '4px 10px',\n          cursor: 'pointer'\n        };\n      }\n      return {\n        background: '#e0e0e0',\n        color: '#757575',\n        border: '1px solid #c7c7c7',\n        borderRadius: '4px',\n        padding: '4px 10px',\n        cursor: 'not-allowed',\n        opacity: '0.95'\n      };\n    },\n    canLinkSelected(row) {\n      return !this.loading && Boolean(this.selectedReferenceByDevice[row.deviceId]);\n    },\n    canCreateAndLink(row) {\n      return !this.loading;\n    },\n    canSaveReference(ref) {\n      if (this.loading) {\n        return false;\n      }\n      const localValue = this.editDisplayNameByRef[ref.id];\n      const fallbackValue = ref.referenceDisplayName || ref.referenceKey || '';\n      const displayName = String(localValue == null ? fallbackValue : localValue).trim();\n      return Boolean(displayName);\n    },\n    scheduleRefresh() {\n      if (this.refreshTimer) {\n        clearTimeout(this.refreshTimer);\n      }\n      this.refreshTimer = setTimeout(() => {\n        this.refreshTimer = null;\n        this.refreshAll();\n      }, 120);\n    },\n    async requestJson(url, options = {}) {\n      const cfg = {\n        method: options.method || 'GET',\n        headers: { 'Content-Type': 'application/json' }\n      };\n      if (options.body !== undefined) {\n        cfg.body = JSON.stringify(options.body);\n      }\n\n      const response = await fetch(url, cfg);\n      let payload = null;\n      try {\n        payload = await response.json();\n      } catch (err) {\n        payload = null;\n      }\n\n      if (!response.ok) {\n        const message = payload && payload.error && payload.error.message ? payload.error.message : ('HTTP ' + response.status);\n        throw new Error(message);\n      }\n      return payload || { ok: true, data: null };\n    },\n    buildSuggestionUrl() {\n      const params = new URLSearchParams();\n      if (this.networkFilter) {\n        params.set('network', this.networkFilter);\n      }\n      params.set('only_unlinked', this.onlyUnlinked ? 'true' : 'false');\n      const qs = params.toString();\n      return qs ? ('/api/v1/device-references/suggestions?' + qs) : '/api/v1/device-references/suggestions';\n    },\n    buildReferenceListUrl() {\n      const params = new URLSearchParams();\n      if (this.networkFilter) {\n        params.set('network', this.networkFilter);\n      }\n      const qs = params.toString();\n      return qs ? ('/api/v1/device-references?' + qs) : '/api/v1/device-references';\n    },\n    referencesFor(network) {\n      return this.references.filter((ref) => ref.network === network);\n    },\n    defaultDisplayName(row) {\n      const evidence = row && row.evidence ? row.evidence : {};\n      if (row.network === 'zigbee') {\n        const vendor = String(evidence.zigbee_vendor || '').trim();\n        const model = String(evidence.zigbee_model || '').trim();\n        if (vendor && model) {\n          return vendor + ' ' + model;\n        }\n      }\n      if (row.network === 'lorawan') {\n        const profile = String(evidence.lorawan_profile_name || '').trim();\n        if (profile) {\n          return profile;\n        }\n      }\n      return row.suggestedReferenceKey || row.displayName || row.externalId || 'new-reference';\n    },\n    seedSuggestionDefaults() {\n      for (const row of this.suggestions) {\n        const id = row.deviceId;\n        if (!this.selectedReferenceByDevice[id]) {\n          if (row.matchedReference && row.matchedReference.id) {\n            this.selectedReferenceByDevice[id] = String(row.matchedReference.id);\n          } else if (row.currentReference && row.currentReference.id) {\n            this.selectedReferenceByDevice[id] = String(row.currentReference.id);\n          }\n        }\n        if (!this.createDisplayNameByDevice[id]) {\n          this.createDisplayNameByDevice[id] = this.defaultDisplayName(row);\n        }\n        if (!Array.isArray(this.createCapabilitiesByDevice[id])) {\n          this.createCapabilitiesByDevice[id] = [];\n        }\n      }\n    },\n    seedReferenceEditors() {\n      for (const ref of this.references) {\n        if (!this.editDisplayNameByRef[ref.id]) {\n          this.editDisplayNameByRef = {\n            ...this.editDisplayNameByRef,\n            [ref.id]: ref.referenceDisplayName || ref.referenceKey || ''\n          };\n        }\n        if (!Array.isArray(this.editCapabilitiesByRef[ref.id])) {\n          this.editCapabilitiesByRef = {\n            ...this.editCapabilitiesByRef,\n            [ref.id]: Array.isArray(ref.capabilities) ? ref.capabilities.slice() : []\n          };\n        }\n      }\n    },\n    async refreshAll() {\n      this.loading = true;\n      this.error = '';\n      this.notice = '';\n      try {\n        const results = await Promise.all([\n          this.requestJson(this.buildSuggestionUrl()),\n          this.requestJson(this.buildReferenceListUrl())\n        ]);\n        const suggestionsRes = results[0];\n        const referencesRes = results[1];\n\n        this.suggestions = Array.isArray(suggestionsRes.data) ? suggestionsRes.data : [];\n        this.references = Array.isArray(referencesRes.data) ? referencesRes.data : [];\n\n        this.seedSuggestionDefaults();\n        this.seedReferenceEditors();\n      } catch (err) {\n        this.error = err.message || 'Failed to load mapping data';\n      } finally {\n        this.loading = false;\n      }\n    },\n    async linkSelected(deviceId) {\n      const referenceIdRaw = this.selectedReferenceByDevice[deviceId];\n      const referenceId = Number(referenceIdRaw);\n      if (!Number.isInteger(referenceId) || referenceId <= 0) {\n        this.error = 'Please select a valid reference before linking.';\n        return;\n      }\n\n      this.loading = true;\n      this.error = '';\n      this.notice = '';\n      try {\n        await this.requestJson('/api/v1/device-reference-links', {\n          method: 'POST',\n          body: {\n            device_id: deviceId,\n            reference_id: referenceId\n          }\n        });\n        this.notice = 'Device ' + deviceId + ' linked to reference ' + referenceId + '.';\n        await this.refreshAll();\n      } catch (err) {\n        this.error = err.message || 'Failed to link device';\n      } finally {\n        this.loading = false;\n      }\n    },\n    async createAndLink(row) {\n      this.loading = true;\n      this.error = '';\n      this.notice = '';\n\n      try {\n        const evidence = row && row.evidence ? row.evidence : {};\n        const rawDisplayName = this.createDisplayNameByDevice[row.deviceId];\n        const displayName = String(rawDisplayName || '').trim() || this.defaultDisplayName(row);\n        const capabilities = this.normalizeCapabilities(this.createCapabilitiesByDevice[row.deviceId]);\n\n        const createBody = {\n          network: row.network,\n          reference_display_name: displayName,\n          reference_key: row.suggestedReferenceKey || undefined,\n          capabilities\n        };\n\n        if (row.network === 'zigbee') {\n          createBody.vendor = evidence.zigbee_vendor || undefined;\n          createBody.model = evidence.zigbee_model || undefined;\n        } else if (row.network === 'lorawan') {\n          createBody.model = evidence.lorawan_profile_name || row.suggestedReferenceKey || undefined;\n        }\n\n        const createdRes = await this.requestJson('/api/v1/device-references', {\n          method: 'POST',\n          body: createBody\n        });\n\n        const created = createdRes && createdRes.data ? createdRes.data : null;\n        if (!created || !created.id) {\n          throw new Error('Reference was created but no ID was returned.');\n        }\n\n        this.selectedReferenceByDevice[row.deviceId] = String(created.id);\n\n        await this.requestJson('/api/v1/device-reference-links', {\n          method: 'POST',\n          body: {\n            device_id: row.deviceId,\n            reference_id: created.id\n          }\n        });\n\n        this.notice = 'Reference ' + created.id + ' created and linked to device ' + row.deviceId + '.';\n        await this.refreshAll();\n      } catch (err) {\n        this.error = err.message || 'Failed to create and link reference';\n      } finally {\n        this.loading = false;\n      }\n    },\n    async saveReference(ref) {\n      const id = ref.id;\n      const localValue = this.editDisplayNameByRef[id];\n      const fallbackValue = ref.referenceDisplayName || ref.referenceKey || '';\n      const displayName = String(localValue == null ? fallbackValue : localValue).trim();\n      const capabilities = this.normalizeCapabilities(this.editCapabilitiesByRef[id]);\n\n      if (!displayName) {\n        this.error = 'reference_display_name is required.';\n        return;\n      }\n\n      this.loading = true;\n      this.error = '';\n      this.notice = '';\n\n      try {\n        await this.requestJson('/api/v1/device-references/' + id, {\n          method: 'PUT',\n          body: {\n            reference_display_name: displayName,\n            capabilities\n          }\n        });\n        this.notice = 'Reference ' + id + ' updated.';\n        await this.refreshAll();\n      } catch (err) {\n        this.error = err.message || 'Failed to update reference';\n      } finally {\n        this.loading = false;\n      }\n    }\n  }\n};\n</script>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1300,
+        "y": 2140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "api_in_ref_mapping_fields",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API GET /api/v1/device-references/:id/mapping-fields",
+        "url": "/api/v1/device-references/:id/mapping-fields",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 290,
+        "y": 2700,
+        "wires": [
+            [
+                "api_domain_validate_ref_mapping_fields"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_validate_ref_mapping_fields",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.validate_mapping_fields_request",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.normalizeApiDeviceReferenceMappingFieldsRequest !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api mapping-fields helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.normalizeApiDeviceReferenceMappingFieldsRequest(msg);\nif (!msg || !msg.deviceReferenceMappingValidation || !msg.deviceReferenceMappingValidation.ok) {\n  const v = msg && msg.deviceReferenceMappingValidation ? msg.deviceReferenceMappingValidation : {};\n  msg = domain.api.setApiError(msg || {}, v.statusCode || 422, v.code || 'validation_failed', v.message || 'Invalid payload', v.details || []);\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 2700,
+        "wires": [
+            [
+                "api_repo_build_ref_mapping_fields"
+            ],
+            [
+                "api_http_resp_ref_mapping_fields"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_mapping_fields",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReferenceMapping.build_fields_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReferenceMapping || typeof repo.deviceReferenceMapping.buildFieldsQuery !== 'function') {\n  node.error('repo.deviceReferenceMapping.buildFieldsQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReferenceMapping.buildFieldsQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1090,
+        "y": 2700,
+        "wires": [
+            [
+                "api_repo_exec_ref_mapping_fields"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_mapping_fields",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReferenceMapping.execute_fields_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1480,
+        "y": 2700,
+        "wires": [
+            [
+                "api_domain_format_ref_mapping_fields"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_mapping_fields",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.format_mapping_fields_response",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.formatDeviceReferenceMappingFields !== 'function' || typeof domain.api.wrapApiData !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api mapping-fields format helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.formatDeviceReferenceMappingFields(msg);\nif (!msg.payload) {\n  msg = domain.api.setApiError(msg || {}, 404, 'reference_not_found', 'No device reference exists for the provided id.');\n  return msg;\n}\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1880,
+        "y": 2700,
+        "wires": [
+            [
+                "api_http_resp_ref_mapping_fields"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_mapping_fields",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response mapping fields",
+        "statusCode": "",
+        "headers": {},
+        "x": 2230,
+        "y": 2700,
+        "wires": []
+    },
+    {
+        "id": "api_in_ref_mappings_replace",
+        "type": "http in",
+        "z": "8350c63ee921963f",
+        "name": "API PUT /api/v1/device-references/:id/mappings",
+        "url": "/api/v1/device-references/:id/mappings",
+        "method": "put",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 290,
+        "y": 2780,
+        "wires": [
+            [
+                "api_json_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_json_ref_mappings_replace",
+        "type": "json",
+        "z": "8350c63ee921963f",
+        "name": "JSON parse mappings replace",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 520,
+        "y": 2780,
+        "wires": [
+            [
+                "api_domain_validate_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_validate_ref_mappings_replace",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.validate_mappings_replace_request",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.normalizeApiDeviceReferenceMappingsReplaceRequest !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api mappings-replace helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.normalizeApiDeviceReferenceMappingsReplaceRequest(msg);\nif (!msg || !msg.deviceReferenceMappingValidation || !msg.deviceReferenceMappingValidation.ok) {\n  const v = msg && msg.deviceReferenceMappingValidation ? msg.deviceReferenceMappingValidation : {};\n  msg = domain.api.setApiError(msg || {}, v.statusCode || 422, v.code || 'validation_failed', v.message || 'Invalid payload', v.details || []);\n  return [null, msg];\n}\nreturn [msg, null];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 850,
+        "y": 2780,
+        "wires": [
+            [
+                "api_repo_build_ref_mappings_replace"
+            ],
+            [
+                "api_http_resp_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_build_ref_mappings_replace",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReferenceMapping.build_replace_query",
+        "func": "const repo = global.get('repo');\nif (!repo || !repo.deviceReferenceMapping || typeof repo.deviceReferenceMapping.buildReplaceQuery !== 'function') {\n  node.error('repo.deviceReferenceMapping.buildReplaceQuery is not available in functionGlobalContext');\n  return null;\n}\nreturn repo.deviceReferenceMapping.buildReplaceQuery(msg);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1240,
+        "y": 2780,
+        "wires": [
+            [
+                "api_repo_exec_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_repo_exec_ref_mappings_replace",
+        "type": "postgresql",
+        "z": "8350c63ee921963f",
+        "name": "repo.deviceReferenceMapping.execute_replace_query",
+        "query": "",
+        "postgreSQLConfig": "pg_cfg_1",
+        "split": false,
+        "rowsPerMsg": "1",
+        "outputs": 1,
+        "x": 1630,
+        "y": 2780,
+        "wires": [
+            [
+                "api_domain_format_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_domain_format_ref_mappings_replace",
+        "type": "function",
+        "z": "8350c63ee921963f",
+        "name": "domain.api.format_mappings_replace_response",
+        "func": "const domain = global.get('domain');\nif (!domain || !domain.api || typeof domain.api.formatDeviceReferenceMappingsReplace !== 'function' || typeof domain.api.wrapApiData !== 'function' || typeof domain.api.setApiError !== 'function') {\n  node.error('domain.api mappings-replace format helpers are not available in functionGlobalContext');\n  return null;\n}\nmsg = domain.api.formatDeviceReferenceMappingsReplace(msg);\nif (!msg.payload) {\n  msg = domain.api.setApiError(msg || {}, 404, 'reference_not_found', 'No device reference exists for the provided id.');\n  return msg;\n}\nreturn domain.api.wrapApiData(msg, 200);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2030,
+        "y": 2780,
+        "wires": [
+            [
+                "api_http_resp_ref_mappings_replace"
+            ]
+        ]
+    },
+    {
+        "id": "api_http_resp_ref_mappings_replace",
+        "type": "http response",
+        "z": "8350c63ee921963f",
+        "name": "API response mappings replace",
+        "statusCode": "",
+        "headers": {},
+        "x": 2370,
+        "y": 2780,
+        "wires": []
+    },
+    {
+        "id": "tpl_activity_interactive_style",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "42c0c2f1b07f4b06",
+        "name": "Interactive controls style",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "format": "<template>\n  </template>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 960,
+        "y": 560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tpl_periodic_interactive_style",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_periodic_filters",
+        "name": "Interactive controls style",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "format": "<template>\n  </template>\n\n<style>\n  /* poc_interactive_controls_v1 */\n  select,\n  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),\n  textarea {\n    min-height: 34px !important;\n    padding: 6px 10px !important;\n    border: 2px solid #4f6f8d !important;\n    border-radius: 6px !important;\n    background: #ffffff !important;\n    color: #12263a !important;\n    font-size: 14px !important;\n    line-height: 1.35 !important;\n    box-shadow: inset 0 1px 1px rgba(15, 35, 60, 0.08) !important;\n    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;\n  }\n\n  select {\n    appearance: none !important;\n    -webkit-appearance: none !important;\n    cursor: pointer !important;\n    padding-right: 30px !important;\n    background-image:\n      linear-gradient(45deg, transparent 50%, #36506b 50%),\n      linear-gradient(135deg, #36506b 50%, transparent 50%) !important;\n    background-position:\n      calc(100% - 14px) calc(50% - 3px),\n      calc(100% - 8px) calc(50% - 3px) !important;\n    background-size: 6px 6px, 6px 6px !important;\n    background-repeat: no-repeat !important;\n  }\n\n  input[type='checkbox'], input[type='radio'] {\n    accent-color: #1565c0 !important;\n    cursor: pointer !important;\n    transform: scale(1.05);\n  }\n\n  select:hover:not(:disabled),\n  input:hover:not(:disabled),\n  textarea:hover:not(:disabled) {\n    border-color: #1565c0 !important;\n    background-color: #f4f9ff !important;\n  }\n\n  select:focus,\n  input:focus,\n  textarea:focus,\n  select:focus-visible,\n  input:focus-visible,\n  textarea:focus-visible {\n    outline: none !important;\n    border-color: #0d47a1 !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n    background-color: #ffffff !important;\n  }\n\n  select:disabled,\n  input:disabled,\n  textarea:disabled {\n    background: #eceff3 !important;\n    border-color: #cfd8e3 !important;\n    color: #7d8a99 !important;\n    cursor: not-allowed !important;\n    box-shadow: none !important;\n  }\n\n  button {\n    min-height: 34px !important;\n    border-radius: 6px !important;\n    font-weight: 600 !important;\n  }\n\n  button:focus,\n  button:focus-visible {\n    outline: none !important;\n    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.22) !important;\n  }\n</style>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1010,
+        "y": 1180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "tpl_actuator_controls_dynamic",
+        "type": "ui-template",
+        "z": "8350c63ee921963f",
+        "group": "grp_actuators_controls",
+        "name": "Actuator controls dynamic",
+        "order": 1,
+        "width": 12,
+        "height": 0,
+        "format": "<template>\n  <div>\n    <h3>Actuator controls</h3>\n    <div v-if=\"items.length === 0\" style=\"color:#666;\">No mapped actuator is available.</div>\n    <div\n      v-for=\"item in items\"\n      :key=\"'ctl-' + String(item.id)\"\n      style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;\"\n    >\n      <button\n        @click=\"toggle(item)\"\n        :disabled=\"!item.canToggle\"\n        :style=\"buttonStyle(item.canToggle)\"\n      >\n        Toggle {{ item.label || item.id }}\n      </button>\n      <span style=\"color:#666;font-size:12px;\">{{ item.network }} | {{ item.id }}</span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      items: []\n    };\n  },\n  watch: {\n    msg: {\n      immediate: true,\n      deep: true,\n      handler() {\n        const rows = Array.isArray(this.msg && this.msg.payload) ? this.msg.payload : [];\n        this.items = rows;\n      }\n    }\n  },\n  methods: {\n    buttonStyle(enabled) {\n      if (enabled) {\n        return {\n          background: '#1565c0',\n          color: '#fff',\n          border: '1px solid #0d47a1',\n          borderRadius: '4px',\n          padding: '4px 10px',\n          cursor: 'pointer'\n        };\n      }\n      return {\n        background: '#e0e0e0',\n        color: '#757575',\n        border: '1px solid #c7c7c7',\n        borderRadius: '4px',\n        padding: '4px 10px',\n        cursor: 'not-allowed',\n        opacity: '0.95'\n      };\n    },\n    toggle(item) {\n      if (!item || !item.canToggle || !item.id) {\n        return;\n      }\n      this.send({ payload: item.id });\n    }\n  }\n};\n</script>\n",
+        "storeOutMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 230,
+        "y": 1320,
+        "wires": [
+            [
+                "fn_prepare_toggle"
+            ]
         ]
     }
 ]

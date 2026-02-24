@@ -61,13 +61,49 @@ The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow
 - Uses immutable canonical device IDs for `poc.devices.external_id`:
   - Zigbee: `ieee_address` (EUI-64).
   - LoRaWAN: `DevEUI` (lowercase).
+- Persists reference auto-link hints in `poc.devices.meta.reference_hints`:
+  - Zigbee hints are enriched from `zigbee2mqtt/bridge/devices` / `zigbee2mqtt/bridge/event` and include `definition.vendor`, `definition.model`, `model_id`, and `manufacturer`.
+  - LoRaWAN hints are enriched from ChirpStack `deviceInfo` and include `deviceProfileName`, `deviceProfileId`, and `devEui`.
+- Exposes device-reference suggestion helpers:
+  - `repo.deviceReference.buildSuggestionQuery(msg)` returns deterministic suggestion rows with blocked reasons when required key parts are missing.
+  - `domain.mapping.formatReferenceSuggestions(msg)` formats suggestion rows into explicit statuses (`blocked`, `suggest_link_existing`, `suggest_create_reference`, `suggest_relink`, `already_linked`).
+  - Suggestion status/reason labels are centralized in `stack/nodered/data/lib/domain/messages.js`.
+- Exposes device-reference create/update helpers:
+  - `domain.mapping.normalizeDeviceReferenceCreateInput(msg)` validates and normalizes create payloads into `msg.deviceReferenceInput`, with structured validation output in `msg.deviceReferenceValidation`.
+  - `domain.mapping.normalizeDeviceReferenceUpdateInput(msg)` validates and normalizes update payloads into `msg.deviceReferenceInput`, with structured validation output in `msg.deviceReferenceValidation`.
+  - `repo.deviceReference.buildCreateQuery(msg)` / `repo.deviceReference.buildUpdateQuery(msg)` build persistence queries from `msg.deviceReferenceInput` (including capability replacement when `capabilities` is provided).
+  - `repo.deviceReference.buildListQuery(msg)` and `domain.mapping.formatDeviceReferences(msg)` support consistent list/read formatting.
+- Exposes minimal Node-RED HTTP API endpoints for mapping workflows:
+  - `GET /api/v1/device-references/suggestions` (query params: `network`, `only_unlinked`)
+  - `GET /api/v1/device-references` (query param: `network`)
+  - `POST /api/v1/device-references` (supports optional `capabilities` array)
+  - `PUT /api/v1/device-references/:id` (supports optional `capabilities` array; when provided, capabilities are replaced)
+  - `GET /api/v1/device-references/:id/mapping-fields`
+  - `PUT /api/v1/device-references/:id/mappings` (replaces mappings for the active mapping version)
+  - `POST /api/v1/device-reference-links`
+  API responses are wrapped as `{ ok: true, data: ... }` on success and `{ ok: false, error: { code, message, details } }` on validation or business-rule failures.
 - Builds FlowFuse Dashboard pages with:
 - **PoC activity** charts (live, record, and complete views). Defaults on load: Source = "Both", Range = "Last 1 hour".
-- **All Devices**: a list of all devices that have sent data, with online/offline based on last uplink (online if seen within 1 hour).
-  - **Actuators**: toggle buttons for supported actuators and a dedicated status section.
-- **Event Sensors**: last 5 status changes per event sensor, with online/offline status based on last uplink.
-- **Periodic Sensors**: per-device time-series charts with range and bucket selectors (defaults to Last 1 hour / 1 minute on load). Devices with multiple metrics render one chart per metric.
-- **Battery & Status**: latest battery levels with color coding and status warnings. Zigbee uses battery % (`battery` or `battery_percentage`), LoRa battery voltage is converted to % with device-specific ranges, and mains devices show "main-powered" (green). Battery % uses the most recent telemetry that includes a battery field. Warnings show "battery low" (<25%) or "battery very low" (<10%).
+- **All Devices** (`/devices`): a list of all devices that have sent data, with online/offline based on last uplink (online if seen within 1 hour), plus a `device_reference` selector to manually assign or re-assign a device to an existing reference.
+  - The current reference label avoids duplicate formatting when display name equals key.
+  - The action button is styled as enabled only when assignment is possible and grayed out otherwise.
+  - The button label is `Assign` for unlinked devices and `Re-assign` for already linked devices.
+- **Actuators** (`/actuators`): dynamically generated from device-reference capabilities/mappings (no hardcoded device IDs). Controls and status rows are built from mapped actuators and their latest telemetry.
+- **Event Sensors** (`/event-sensors`): dynamically generated from mappings with role `event`; shows the latest 5 value transitions per mapped event field/device and online/offline status.
+- **Periodic Sensors** (`/periodic-sensors`): dynamically generated from references with capability `periodic_sensor` and mappings with role `metric`. Only numeric mappings (`number` / `integer`) are charted. Rendering is generic (parameter over time), with one chart per mapped metric and UI grouping by device.
+- **Battery & Status** (`/battery-status`): latest battery levels with color coding and status warnings using generic telemetry-driven rules (no device-specific hardcoded IDs). Warnings show "battery low" (<25%) or "battery very low" (<10%).
+- **Device References** (`/devices-references`): reference management page with mapping suggestions and reference actions:
+  - list deterministic mapping suggestions per device,
+  - link a device to an existing reference,
+  - create a reference from a suggestion (including capability selection) and link in one action,
+  - and update existing references (display name and capabilities).
+- **Device Mapping** (`/device-mapping`): page for one selected `device_reference` at a time, showing available candidate fields and letting you decide:
+  - which fields are used,
+  - the mapping role (`metric`, `status`, `battery`, `event`, `actuation`, `metadata`),
+  - normalized field name,
+  - data type and unit,
+  - and active state.
+- Dashboard form controls (`select`, `input`, `textarea`, checkboxes/radios, and buttons) include shared interactive styling so editable fields are visually distinct from plain text, with explicit hover/focus/disabled states.
 Online/offline on the **All Devices** page uses `THRESHOLD_LAST_SEEN_MINUTES` from `stack/.env` (default 60 minutes).
 
 Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
