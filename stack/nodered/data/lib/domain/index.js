@@ -36,6 +36,39 @@ function cleanString(value) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function isRetainedMessage(msg) {
+  const value = msg && msg.retain;
+  return value === true || value === 1 || value === '1' || value === 'true';
+}
+
+function normalizeAvailabilityValue(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const text = String(value).trim().toLowerCase();
+  if (text === 'online' || text === 'offline') {
+    return text;
+  }
+  return null;
+}
+
+function availabilityFromPayload(payload, rawPayload) {
+  const candidates = [
+    payload && payload.availability,
+    payload && payload.state,
+    payload && payload.status,
+    payload && payload.raw,
+    rawPayload
+  ];
+  for (const value of candidates) {
+    const normalized = normalizeAvailabilityValue(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
 function mergeZigbeeReferenceHint(current, incoming) {
   const base = (current && typeof current === 'object') ? { ...current } : {};
   if (!incoming || typeof incoming !== 'object') {
@@ -90,7 +123,9 @@ function upsertZigbeeReferenceHint(cache, hint) {
 
 function normalizeMqtt(msg, flow) {
   const topic = msg.topic || '';
-  const payload = (typeof msg.payload === 'object' && msg.payload) ? msg.payload : { raw: msg.payload };
+  const rawPayload = msg.payload;
+  const payload = (typeof rawPayload === 'object' && rawPayload) ? rawPayload : { raw: rawPayload };
+  const retained = isRetainedMessage(msg);
   const zigbeeByFriendly = flow.get('zigbeeByFriendly') || {};
   const zigbeeReferenceByIeee = flow.get('zigbeeReferenceByIeee') || {};
 
@@ -164,10 +199,16 @@ function normalizeMqtt(msg, flow) {
     return null;
   }
 
+  // Retained MQTT payloads are replayed on reconnect and should not update live status.
+  if (retained && (topic.startsWith('zigbee2mqtt/') || topic.startsWith('application/'))) {
+    return null;
+  }
+
   if (topic.startsWith('zigbee2mqtt/')) {
     const parts = topic.split('/');
     if (parts.length >= 2 && parts[1] !== 'bridge') {
       const topicDevice = parts[1];
+      const isAvailabilityTopic = parts.length >= 3 && parts[2] === 'availability';
       let ieee = canonicalIeee(payload.ieee_address || payload.ieeeAddr);
       if (!ieee && isIeeeAddress(topicDevice)) ieee = topicDevice.toLowerCase();
       if (!ieee && zigbeeByFriendly[topicDevice]) ieee = zigbeeByFriendly[topicDevice];
@@ -184,9 +225,18 @@ function normalizeMqtt(msg, flow) {
       out.source = 'zigbee';
       out.deviceId = ieee;
       out.displayName = isIeeeAddress(topicDevice) ? (payload.friendly_name || topicDevice) : topicDevice;
-      out.eventType = 'state';
-      out.metrics = payload;
-      out.ts = asIso(payload.last_seen);
+      out.eventType = isAvailabilityTopic ? 'availability' : 'state';
+      if (isAvailabilityTopic) {
+        const availability = availabilityFromPayload(payload, rawPayload);
+        if (!availability) {
+          return null;
+        }
+        out.metrics = { availability };
+        out.ts = isoNow();
+      } else {
+        out.metrics = payload;
+        out.ts = asIso(payload.last_seen);
+      }
 
       const payloadReferenceHint = buildZigbeeReferenceHint({
         ieee_address: ieee,
@@ -449,7 +499,12 @@ function normalizeMetricFieldToken(value) {
   if (typeof value !== 'string') {
     return '';
   }
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return value
+    .trim()
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function defaultNormalizedFieldFromSourcePath(sourcePath) {
@@ -1399,6 +1454,25 @@ function thresholdMsFromEnv(envApi) {
   return Number.isFinite(thresholdMin) ? thresholdMin * 60 * 1000 : 60 * 60 * 1000;
 }
 
+function availabilityFromMetricsForStatus(metricsRaw) {
+  const metrics = asObject(metricsRaw) || {};
+  const direct = normalizeAvailabilityValue(metrics.availability);
+  if (direct) {
+    return direct;
+  }
+  // Backward compatibility for older ingested availability payloads.
+  return normalizeAvailabilityValue(metrics.raw);
+}
+
+function computeOnlineStatus(lastTs, thresholdMs, metricsRaw) {
+  const availability = availabilityFromMetricsForStatus(metricsRaw);
+  if (availability === 'offline') {
+    return false;
+  }
+  const lastMs = lastTs ? Date.parse(lastTs) : NaN;
+  return Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
+}
+
 function batteryColor(pct) {
   if (pct === null || pct === undefined || Number.isNaN(Number(pct))) return '#9e9e9e';
   const n = Number(pct);
@@ -1475,12 +1549,16 @@ function setActivityRange(msg, flow) {
 }
 
 function setPeriodicRange(msg, flow) {
-  flow.set('periodic_range', msg.payload || '1h');
+  const allowedRanges = new Set(['1h', '6h', '24h', '7d']);
+  const selectedRange = String(msg && msg.payload ? msg.payload : '').trim();
+  flow.set('periodic_range', allowedRanges.has(selectedRange) ? selectedRange : '1h');
   return { payload: 'refresh' };
 }
 
 function setPeriodicBucket(msg, flow) {
-  flow.set('periodic_bucket', msg.payload || '1 minute');
+  const allowedBuckets = new Set(['auto', '1 minute', '5 minutes', '15 minutes', '1 hour']);
+  const selectedBucket = String(msg && msg.payload ? msg.payload : '').trim();
+  flow.set('periodic_bucket', allowedBuckets.has(selectedBucket) ? selectedBucket : 'auto');
   return { payload: 'refresh' };
 }
 
@@ -1493,19 +1571,8 @@ function formatAllDevices(msg, deps) {
   const thresholdMs = thresholdMsFromEnv(deps && deps.env);
 
   msg.payload = rows.map((r) => {
-    const metrics = { ...(r.metrics || {}) };
-    if ((metrics.battery === undefined || metrics.battery === null) && metrics.battery_percentage !== undefined) {
-      metrics.battery = metrics.battery_percentage;
-    }
-
-    const summary = ['state', 'relay', 'door_open', 'occupancy', 'motion', 'temperature', 'humidity', 'illuminance', 'battery']
-      .filter((k) => metrics[k] !== undefined)
-      .map((k) => `${k}: ${metrics[k]}`)
-      .join(' | ') || 'No telemetry yet';
-
     const lastTs = r.last_ts || r.last_seen_at || null;
-    const lastMs = lastTs ? Date.parse(lastTs) : NaN;
-    const online = Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
+    const online = computeOnlineStatus(lastTs, thresholdMs, r.metrics);
 
     return {
       deviceId: r.device_id,
@@ -1514,7 +1581,6 @@ function formatAllDevices(msg, deps) {
       network: r.network || 'n/a',
       lastTs,
       online,
-      summary,
       currentReferenceId: r.device_reference_id || null,
       currentReferenceKey: r.reference_key || null,
       currentReferenceDisplayName: r.reference_display_name || null
@@ -1525,6 +1591,74 @@ function formatAllDevices(msg, deps) {
 
 function metricValue(obj, key) {
   return (obj && obj[key] !== undefined && obj[key] !== null) ? obj[key] : undefined;
+}
+
+function deriveMappedBattery(row) {
+  const valueType = lowerTrimmedString(row && row.mapped_battery_value_type);
+  const unit = lowerTrimmedString(row && row.mapped_battery_unit) || '';
+
+  let numericValue = null;
+  if (valueType === 'number' || valueType === 'integer') {
+    const n = Number(row.mapped_battery_value_number);
+    numericValue = Number.isFinite(n) ? n : null;
+  } else if (valueType === 'text') {
+    const n = Number(String(row.mapped_battery_value_text || '').trim());
+    numericValue = Number.isFinite(n) ? n : null;
+  }
+
+  if (!Number.isFinite(numericValue)) {
+    return {
+      batteryPct: null,
+      batteryV: null
+    };
+  }
+
+  if (
+    unit === '%'
+    || unit === 'pct'
+    || unit === 'percent'
+    || unit === 'percentage'
+    || unit.includes('percent')
+  ) {
+    return {
+      batteryPct: numericValue,
+      batteryV: null
+    };
+  }
+
+  if (unit === 'mv' || unit === 'millivolt' || unit === 'millivolts') {
+    return {
+      batteryPct: null,
+      batteryV: numericValue / 1000
+    };
+  }
+
+  if (unit === 'v' || unit === 'volt' || unit === 'volts') {
+    return {
+      batteryPct: null,
+      batteryV: numericValue
+    };
+  }
+
+  // Heuristics when unit is not provided by mapping.
+  if (numericValue >= 0 && numericValue <= 100) {
+    return {
+      batteryPct: numericValue,
+      batteryV: null
+    };
+  }
+
+  if (numericValue >= 1.5 && numericValue <= 6) {
+    return {
+      batteryPct: null,
+      batteryV: numericValue
+    };
+  }
+
+  return {
+    batteryPct: null,
+    batteryV: null
+  };
 }
 
 function deriveBatteryState(baseMetrics, batteryMetrics, pctFromVoltage) {
@@ -1563,7 +1697,7 @@ function deriveBatteryState(baseMetrics, batteryMetrics, pctFromVoltage) {
 
   const isBatteryPct = Number.isFinite(batteryPct);
   const batteryText = isMains
-    ? 'main-powered'
+    ? 'Connected device'
     : (isBatteryPct
       ? `${batteryPct}%`
       : (hasV ? `${Number(batteryVRaw).toFixed(2)} V` : 'n/a'));
@@ -1575,6 +1709,42 @@ function deriveBatteryState(baseMetrics, batteryMetrics, pctFromVoltage) {
     batteryText,
     batteryColor: isMains ? '#2e7d32' : (isBatteryPct ? batteryColor(batteryPct) : '#9e9e9e')
   };
+}
+
+function parseMappings(raw) {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function formatActuationState(raw) {
+  if (raw === undefined || raw === null) {
+    return 'n/a';
+  }
+  const asBool = parseBoolean(raw);
+  if (asBool === true) {
+    return 'ON';
+  }
+  if (asBool === false) {
+    return 'OFF';
+  }
+  if (typeof raw === 'object') {
+    try {
+      return JSON.stringify(raw);
+    } catch (err) {
+      return String(raw);
+    }
+  }
+  return String(raw);
 }
 
 function formatActuatorStatus(msg, deps) {
@@ -1591,30 +1761,49 @@ function formatActuatorStatus(msg, deps) {
     const label = (r && r.display_name) ? String(r.display_name) : id;
     const network = r && r.network ? String(r.network) : null;
     const lastTs = r && r.ts ? r.ts : null;
-    const lastMs = lastTs ? Date.parse(lastTs) : NaN;
-    const online = Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
+    const online = computeOnlineStatus(lastTs, thresholdMs, r.metrics);
     const hasActuation = isTrue(r && r.has_actuation);
     const toggleCapableNetwork = network === 'zigbee' || network === 'lorawan';
+    const metrics = asObject(r && r.metrics) || {};
+    const mappings = parseMappings(r && r.mappings);
 
-    const batteryInfo = deriveBatteryState((r && r.metrics) || {}, null, pctFromVoltage);
+    const actuationMapping = mappings.find((m) => String(m && m.role || '').toLowerCase() === 'actuation')
+      || mappings.find((m) => String(m && m.role || '').toLowerCase() === 'status')
+      || null;
+    const sourcePath = actuationMapping && typeof actuationMapping.source_path === 'string'
+      ? actuationMapping.source_path
+      : (metrics.state !== undefined ? 'state' : (metrics.relay !== undefined ? 'relay' : null));
+    const stateValue = sourcePath ? getByPath(metrics, sourcePath) : undefined;
+    const stateText = formatActuationState(stateValue);
+
+    const batteryInfo = deriveBatteryState(metrics, null, pctFromVoltage);
+    const referenceDisplayName = cleanString(r && r.reference_display_name);
+    const referenceKey = cleanString(r && r.reference_key);
+    const referenceLabel = referenceDisplayName && referenceKey && referenceDisplayName !== referenceKey
+      ? `${referenceDisplayName} (${referenceKey})`
+      : (referenceDisplayName || referenceKey || 'Unlinked reference');
 
     return {
       id,
       externalId: id,
       label,
       network: network || 'n/a',
+      referenceDisplayName: referenceDisplayName || null,
+      referenceKey: referenceKey || null,
+      referenceLabel,
       lastTs,
       online,
       unavailable: !lastTs,
       canToggle: hasActuation && toggleCapableNetwork,
+      stateText,
       batteryText: lastTs ? batteryInfo.batteryText : 'n/a',
       batteryColor: lastTs ? batteryInfo.batteryColor : '#9e9e9e'
     };
   }).filter(Boolean);
 
   items.sort((a, b) => {
-    const netCmp = String(a.network || '').localeCompare(String(b.network || ''));
-    if (netCmp !== 0) return netCmp;
+    const refCmp = String(a.referenceLabel || '').localeCompare(String(b.referenceLabel || ''));
+    if (refCmp !== 0) return refCmp;
     return String(a.label || '').localeCompare(String(b.label || ''));
   });
 
@@ -1736,11 +1925,21 @@ function formatEventChanges(msg, deps) {
       continue;
     }
     if (!byId.has(id)) {
-      byId.set(id, { id, label: row.display_name || null, lastTs: row.last_ts || null, online: false, events: [] });
+      byId.set(id, {
+        id,
+        label: row.display_name || null,
+        lastTs: row.last_ts || null,
+        lastMetrics: row.last_metrics || null,
+        online: false,
+        events: []
+      });
     }
     const entry = byId.get(id);
     if (!entry.lastTs && row.last_ts) {
       entry.lastTs = row.last_ts;
+    }
+    if (!entry.lastMetrics && row.last_metrics) {
+      entry.lastMetrics = row.last_metrics;
     }
     if (!entry.label && row.display_name) {
       entry.label = row.display_name;
@@ -1756,8 +1955,7 @@ function formatEventChanges(msg, deps) {
   }
 
   const items = Array.from(byId.values()).map((entry) => {
-    const lastMs = entry.lastTs ? Date.parse(entry.lastTs) : NaN;
-    entry.online = Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
+    entry.online = computeOnlineStatus(entry.lastTs, thresholdMs, entry.lastMetrics);
     entry.label = entry.label || entry.id;
     entry.events.sort((a, b) => {
       const aTs = a && a.ts ? Date.parse(a.ts) : NaN;
@@ -1777,12 +1975,39 @@ function formatEventChanges(msg, deps) {
 function formatPeriodicChartsByDevice(msg) {
   const rows = Array.isArray(msg.payload) ? msg.payload : [];
   const byDevice = new Map();
+  let queryNowMs = NaN;
+  let rangeStartMs = NaN;
+
+  function normalizeMetricDataType(raw) {
+    const t = String(raw || '').trim().toLowerCase();
+    if (t === 'number' || t === 'integer' || t === 'boolean' || t === 'text') {
+      return t;
+    }
+    return 'number';
+  }
+
+  function parseBooleanValue(raw) {
+    if (raw === true || raw === false) {
+      return raw;
+    }
+    const t = String(raw || '').trim().toLowerCase();
+    if (t === 'true' || t === 't' || t === '1') {
+      return true;
+    }
+    if (t === 'false' || t === 'f' || t === '0') {
+      return false;
+    }
+    return null;
+  }
 
   for (const r of rows) {
-    const bucketTs = Date.parse(r && r.bucket ? r.bucket : '');
-    const valueNum = Number(r && r.value);
-    if (!Number.isFinite(bucketTs) || !Number.isFinite(valueNum)) {
-      continue;
+    const rowQueryNowMs = Date.parse(r && r.query_now ? r.query_now : '');
+    if (Number.isFinite(rowQueryNowMs)) {
+      queryNowMs = rowQueryNowMs;
+    }
+    const rowRangeStartMs = Date.parse(r && r.range_start ? r.range_start : '');
+    if (Number.isFinite(rowRangeStartMs)) {
+      rangeStartMs = rowRangeStartMs;
     }
 
     const deviceId = String(
@@ -1791,7 +2016,10 @@ function formatPeriodicChartsByDevice(msg) {
     const deviceLabel = String((r && r.device_label) || deviceId);
     const metricName = String((r && r.metric_name) || 'metric');
     const unit = (r && r.unit) ? String(r.unit) : null;
-    const metricKey = unit ? `${metricName}__${unit}` : metricName;
+    const metricType = normalizeMetricDataType(r && r.metric_data_type);
+    const metricKey = unit
+      ? `${metricName}__${unit}__${metricType}`
+      : `${metricName}__${metricType}`;
 
     if (!byDevice.has(deviceId)) {
       byDevice.set(deviceId, {
@@ -1806,14 +2034,58 @@ function formatPeriodicChartsByDevice(msg) {
       deviceEntry.metrics.set(metricKey, {
         metricName,
         unit,
+        metricType,
+        categories: [],
+        _categoryIndexByValue: {},
         points: []
       });
     }
 
-    deviceEntry.metrics.get(metricKey).points.push({
-      x: bucketTs,
-      y: valueNum
-    });
+    const metricEntry = deviceEntry.metrics.get(metricKey);
+    const bucketTs = Date.parse(r && r.bucket ? r.bucket : '');
+    if (!Number.isFinite(bucketTs)) {
+      continue;
+    }
+
+    if (metricType === 'boolean') {
+      const b = parseBooleanValue(r && r.value_boolean);
+      if (b === null) {
+        continue;
+      }
+      metricEntry.points.push({
+        x: bucketTs,
+        y: b ? 1 : 0,
+        label: b ? 'true' : 'false'
+      });
+      continue;
+    }
+
+    if (metricType === 'text') {
+      const rawText = r && r.value_text;
+      if (rawText === null || rawText === undefined) {
+        continue;
+      }
+      const label = String(rawText);
+      if (!Object.prototype.hasOwnProperty.call(metricEntry._categoryIndexByValue, label)) {
+        metricEntry._categoryIndexByValue[label] = metricEntry.categories.length;
+        metricEntry.categories.push(label);
+      }
+      metricEntry.points.push({
+        x: bucketTs,
+        y: metricEntry._categoryIndexByValue[label],
+        label
+      });
+      continue;
+    }
+
+    const valueNum = Number(r && r.value_number);
+    if (Number.isFinite(valueNum)) {
+      metricEntry.points.push({
+        x: bucketTs,
+        y: valueNum,
+        label: valueNum.toFixed(2)
+      });
+    }
   }
 
   const payload = Array.from(byDevice.values())
@@ -1821,9 +2093,32 @@ function formatPeriodicChartsByDevice(msg) {
       const metrics = Array.from(deviceEntry.metrics.values())
         .map((metric) => {
           metric.points.sort((a, b) => a.x - b.x);
+
+          if ((metric.metricType === 'boolean' || metric.metricType === 'text') && metric.points.length > 1) {
+            const stepped = [metric.points[0]];
+            for (let i = 0; i < metric.points.length - 1; i++) {
+              const current = metric.points[i];
+              const next = metric.points[i + 1];
+              stepped.push({
+                x: next.x,
+                y: current.y,
+                label: current.label
+              });
+              stepped.push(next);
+            }
+            metric.points = stepped;
+          }
+
+          delete metric._categoryIndexByValue;
           return metric;
         })
-        .sort((a, b) => String(a.metricName).localeCompare(String(b.metricName)));
+        .sort((a, b) => {
+          const byName = String(a.metricName).localeCompare(String(b.metricName));
+          if (byName !== 0) {
+            return byName;
+          }
+          return String(a.metricType).localeCompare(String(b.metricType));
+        });
 
       return {
         deviceId: deviceEntry.deviceId,
@@ -1833,6 +2128,10 @@ function formatPeriodicChartsByDevice(msg) {
     })
     .sort((a, b) => String(a.deviceLabel).localeCompare(String(b.deviceLabel)));
 
+  const endMs = Number.isFinite(queryNowMs) ? queryNowMs : Date.now();
+  const startMs = Number.isFinite(rangeStartMs) ? rangeStartMs : (endMs - (60 * 60 * 1000));
+  msg.periodicWindowStartMs = startMs;
+  msg.periodicWindowEndMs = endMs;
   msg.payload = payload;
   return msg;
 }
@@ -1844,12 +2143,30 @@ function formatBatteryStatus(msg, deps) {
 
   msg.payload = rows.map((r) => {
     const baseMetrics = r.metrics || {};
-    const batteryMetrics = r.battery_metrics || {};
-    const batteryInfo = deriveBatteryState(baseMetrics, batteryMetrics, pctFromVoltage);
+    const hasBatteryMapping = isTrue(r.has_battery_mapping);
+    const mappedBattery = deriveMappedBattery(r);
+    const referencePowerSource = lowerTrimmedString(r.reference_power_source);
+
+    const batteryMetrics = {};
+    if (Number.isFinite(mappedBattery.batteryPct)) {
+      batteryMetrics.battery = mappedBattery.batteryPct;
+    }
+    if (Number.isFinite(mappedBattery.batteryV)) {
+      batteryMetrics.battery_v = mappedBattery.batteryV;
+    }
+
+    if (!hasBatteryMapping || referencePowerSource === 'mains') {
+      batteryMetrics.mains_powered = true;
+    } else if (referencePowerSource === 'battery') {
+      batteryMetrics.mains_powered = false;
+    }
+
+    // For battery-powered devices, use dynamic role=battery mappings as source of truth.
+    const batteryBaseMetrics = hasBatteryMapping ? {} : baseMetrics;
+    const batteryInfo = deriveBatteryState(batteryBaseMetrics, batteryMetrics, pctFromVoltage);
 
     const lastTs = r.ts || null;
-    const lastMs = lastTs ? Date.parse(lastTs) : NaN;
-    const online = Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
+    const online = computeOnlineStatus(lastTs, thresholdMs, baseMetrics);
 
     let warning = '';
     let warningColor = '';

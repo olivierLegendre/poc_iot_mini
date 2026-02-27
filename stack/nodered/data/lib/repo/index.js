@@ -893,9 +893,13 @@ function buildActuatorStatusQuery(msg) {
   msg.query = `WITH actuator_devices AS (
   SELECT
     d.id,
+    d.device_reference_id,
     d.network,
     d.external_id,
     d.display_name,
+    dr.reference_key,
+    COALESCE(dr.meta->>'reference_display_name', dr.reference_key) AS reference_display_name,
+    dr.active_mapping_version,
     EXISTS (
       SELECT 1
       FROM poc.device_reference_mapping drm
@@ -917,18 +921,56 @@ function buildActuatorStatusQuery(msg) {
    AND drm.role = 'actuation'
   WHERE cap.device_reference_id IS NOT NULL
      OR drm.id IS NOT NULL
-  GROUP BY d.id, d.network, d.external_id, d.display_name, d.device_reference_id
+  GROUP BY
+    d.id,
+    d.device_reference_id,
+    d.network,
+    d.external_id,
+    d.display_name,
+    dr.reference_key,
+    dr.meta,
+    dr.active_mapping_version
 )
 SELECT
   ad.network,
   ad.external_id,
   ad.display_name,
+  ad.reference_key,
+  ad.reference_display_name,
+  ad.has_actuation,
+  t.ts,
+  t.metrics,
+  COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', map.id,
+        'source_path', map.source_path,
+        'normalized_field', map.normalized_field,
+        'role', map.role,
+        'data_type', map.data_type
+      )
+      ORDER BY map.id
+    ) FILTER (WHERE map.id IS NOT NULL),
+    '[]'::jsonb
+  ) AS mappings
+FROM actuator_devices ad
+LEFT JOIN poc.latest_telemetry t ON t.device_id = ad.id
+LEFT JOIN poc.device_reference_mapping map
+  ON map.device_reference_id = ad.device_reference_id
+ AND map.mapping_version = ad.active_mapping_version
+ AND map.is_active = true
+ AND map.role IN ('actuation', 'status')
+GROUP BY
+  ad.id,
+  ad.network,
+  ad.external_id,
+  ad.display_name,
+  ad.reference_key,
+  ad.reference_display_name,
   ad.has_actuation,
   t.ts,
   t.metrics
-FROM actuator_devices ad
-LEFT JOIN poc.latest_telemetry t ON t.device_id = ad.id
-ORDER BY ad.network, ad.external_id;`;
+ORDER BY ad.reference_display_name, ad.network, ad.external_id;`;
   msg.params = [];
   return msg;
 }
@@ -977,7 +1019,9 @@ function buildEventSensorChangesQuery(msg) {
     d.external_id,
     d.display_name,
     lt.ts AS last_ts,
-    drm.normalized_field AS metric_name
+    lt.metrics AS last_metrics,
+    drm.source_path,
+    drm.normalized_field AS metric_label
   FROM poc.devices d
   JOIN poc.device_reference dr ON dr.id = d.device_reference_id
   JOIN poc.device_reference_mapping drm
@@ -991,14 +1035,16 @@ function buildEventSensorChangesQuery(msg) {
     device_id,
     external_id,
     display_name,
-    last_ts
+    last_ts,
+    last_metrics
   FROM event_map
 ), relevant AS (
   SELECT
     em.device_id,
     em.external_id,
     em.display_name,
-    em.metric_name,
+    em.source_path,
+    em.metric_label,
     m.ts,
     COALESCE(
       m.value_text,
@@ -1016,14 +1062,15 @@ function buildEventSensorChangesQuery(msg) {
   FROM event_map em
   JOIN poc.metrics m
     ON m.device_id = em.device_id
-   AND m.metric_name = em.metric_name
+   AND m.source_path = em.source_path
 ), diff AS (
   SELECT
     device_id,
     external_id,
-    metric_name AS metric_key,
+    metric_label AS metric_key,
+    source_path,
     ts,
-    lag(metric_value) OVER (PARTITION BY device_id, metric_name ORDER BY ts) AS old_value,
+    lag(metric_value) OVER (PARTITION BY device_id, source_path ORDER BY ts) AS old_value,
     metric_value AS new_value
   FROM relevant
   WHERE metric_value IS NOT NULL
@@ -1048,6 +1095,7 @@ SELECT
   l.external_id,
   l.display_name,
   l.last_ts,
+  l.last_metrics,
   c.metric_key,
   c.old_value,
   c.new_value,
@@ -1061,17 +1109,45 @@ ORDER BY l.external_id, c.ts DESC NULLS LAST;`;
 }
 
 function buildPeriodicMetricsQuery(msg, flow) {
-  const rangeMap = { '1h': '1 hour' };
-  const range = flow.get('periodic_range') || '1h';
-  const bucket = flow.get('periodic_bucket') || '1 minute';
-  const interval = rangeMap[range] || '1 hour';
+  const rangeMap = {
+    '1h': '1 hour',
+    '6h': '6 hours',
+    '24h': '24 hours',
+    '7d': '7 days'
+  };
+  const bucketMap = {
+    '1 minute': '1 minute',
+    '5 minutes': '5 minutes',
+    '15 minutes': '15 minutes',
+    '1 hour': '1 hour'
+  };
+  const autoBucketByRange = {
+    '1h': '1 minute',
+    '6h': '5 minutes',
+    '24h': '15 minutes',
+    '7d': '1 hour'
+  };
+
+  const selectedRange = flow.get('periodic_range') || '1h';
+  const selectedBucket = flow.get('periodic_bucket') || 'auto';
+  const interval = rangeMap[selectedRange] || rangeMap['1h'];
+  const bucketKey = selectedBucket === 'auto'
+    ? (autoBucketByRange[selectedRange] || autoBucketByRange['1h'])
+    : selectedBucket;
+  const bucket = bucketMap[bucketKey] || bucketMap['1 minute'];
+
+  msg.periodicRange = rangeMap[selectedRange] ? selectedRange : '1h';
+  msg.periodicBucket = selectedBucket;
+  msg.periodicBucketResolved = bucket;
   msg.query = `WITH mapped AS (
   SELECT
     d.id AS device_id,
     d.external_id AS device_external_id,
     COALESCE(d.display_name, d.external_id) AS device_label,
+    drm.source_path,
     drm.normalized_field AS metric_name,
-    NULLIF(BTRIM(drm.unit), '') AS unit
+    NULLIF(BTRIM(drm.unit), '') AS unit,
+    lower(COALESCE(drm.data_type, '')) AS metric_data_type
   FROM poc.devices d
   JOIN poc.device_reference dr ON dr.id = d.device_reference_id
   JOIN poc.device_reference_capability cap
@@ -1082,56 +1158,128 @@ function buildPeriodicMetricsQuery(msg, flow) {
    AND drm.mapping_version = dr.active_mapping_version
    AND drm.is_active = true
    AND drm.role = 'metric'
-  WHERE lower(COALESCE(drm.data_type, '')) IN ('number', 'integer')
-), base AS (
+  WHERE lower(COALESCE(drm.data_type, '')) IN ('number', 'integer', 'boolean', 'text')
+), bucketed AS (
   SELECT
-    date_bin(interval '${bucket}', m.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
+    mapped.device_id,
     mapped.device_external_id,
     mapped.device_label,
+    mapped.source_path,
     mapped.metric_name,
     mapped.unit,
-    m.value_number AS value
+    mapped.metric_data_type,
+    date_bin(interval '${bucket}', m.ts, TIMESTAMPTZ '1970-01-01') AS bucket,
+    avg(m.value_number) FILTER (
+      WHERE mapped.metric_data_type IN ('number', 'integer')
+    ) AS value_number,
+    (
+      array_agg(m.value_boolean ORDER BY m.ts DESC) FILTER (
+        WHERE mapped.metric_data_type = 'boolean'
+          AND m.value_boolean IS NOT NULL
+      )
+    )[1] AS value_boolean,
+    (
+      array_agg(m.value_text ORDER BY m.ts DESC) FILTER (
+        WHERE mapped.metric_data_type = 'text'
+          AND m.value_text IS NOT NULL
+      )
+    )[1] AS value_text
   FROM poc.metrics m
   JOIN mapped
     ON mapped.device_id = m.device_id
-   AND mapped.metric_name = m.metric_name
+   AND mapped.source_path = m.source_path
   WHERE m.ts >= now() - interval '${interval}'
-    AND m.value_number IS NOT NULL
+    AND (
+      (mapped.metric_data_type IN ('number', 'integer') AND m.value_number IS NOT NULL)
+      OR (mapped.metric_data_type = 'boolean' AND m.value_boolean IS NOT NULL)
+      OR (mapped.metric_data_type = 'text' AND m.value_text IS NOT NULL)
+    )
+  GROUP BY
+    mapped.device_id,
+    mapped.device_external_id,
+    mapped.device_label,
+    mapped.source_path,
+    mapped.metric_name,
+    mapped.unit,
+    mapped.metric_data_type,
+    date_bin(interval '${bucket}', m.ts, TIMESTAMPTZ '1970-01-01')
 )
 SELECT
-  bucket,
-  device_external_id,
-  device_label,
-  metric_name,
-  unit,
-  avg(value) AS value
-FROM base
-GROUP BY bucket, device_external_id, device_label, metric_name, unit
-ORDER BY device_label, metric_name, bucket;`;
+  mapped.device_external_id,
+  mapped.device_label,
+  mapped.metric_name,
+  mapped.unit,
+  mapped.metric_data_type,
+  now() AS query_now,
+  now() - interval '${interval}' AS range_start,
+  bucketed.bucket,
+  bucketed.value_number,
+  bucketed.value_boolean,
+  bucketed.value_text
+FROM mapped
+LEFT JOIN bucketed
+  ON bucketed.device_id = mapped.device_id
+ AND bucketed.source_path = mapped.source_path
+ AND bucketed.unit IS NOT DISTINCT FROM mapped.unit
+ AND bucketed.metric_data_type = mapped.metric_data_type
+ORDER BY mapped.device_label, mapped.metric_name, mapped.metric_data_type, bucketed.bucket NULLS LAST;`;
   msg.params = [];
   return msg;
 }
 
 function buildBatteryStatusQuery(msg) {
-  msg.query = `SELECT d.external_id,d.display_name,d.network,
-       t.ts,t.metrics,
-       b.ts AS battery_ts, b.metrics AS battery_metrics
+  msg.query = `SELECT
+  d.external_id,
+  d.display_name,
+  d.network,
+  t.ts,
+  t.metrics,
+  dr.meta->>'power_source' AS reference_power_source,
+  EXISTS (
+    SELECT 1
+    FROM poc.device_reference_mapping drm
+    WHERE drm.device_reference_id = dr.id
+      AND drm.mapping_version = dr.active_mapping_version
+      AND drm.role = 'battery'
+      AND drm.is_active = TRUE
+  ) AS has_battery_mapping,
+  mapped_battery.ts AS mapped_battery_ts,
+  mapped_battery.metric_name AS mapped_battery_metric_name,
+  mapped_battery.value_type AS mapped_battery_value_type,
+  mapped_battery.value_number AS mapped_battery_value_number,
+  mapped_battery.value_text AS mapped_battery_value_text,
+  mapped_battery.value_boolean AS mapped_battery_value_boolean,
+  mapped_battery.value_json AS mapped_battery_value_json,
+  mapped_battery.unit AS mapped_battery_unit,
+  mapped_battery.data_type AS mapped_battery_data_type
 FROM poc.devices d
-LEFT JOIN poc.latest_telemetry t ON t.device_id=d.id
+LEFT JOIN poc.latest_telemetry t
+  ON t.device_id = d.id
+LEFT JOIN poc.device_reference dr
+  ON dr.id = d.device_reference_id
 LEFT JOIN LATERAL (
-  SELECT tt.ts, tt.metrics
-  FROM poc.telemetry tt
-  WHERE tt.device_id=d.id
-    AND (
-      tt.metrics ? 'battery'
-      OR tt.metrics ? 'battery_percentage'
-      OR tt.metrics ? 'battery_v'
-      OR (tt.metrics->'object') ? 'battery_v'
-    )
-  ORDER BY tt.ts DESC
+  SELECT
+    m.ts,
+    m.metric_name,
+    m.value_type,
+    m.value_number,
+    m.value_text,
+    m.value_boolean,
+    m.value_json,
+    m.unit,
+    drm.data_type
+  FROM poc.device_reference_mapping drm
+  JOIN poc.metrics m
+    ON m.mapping_id = drm.id
+   AND m.device_id = d.id
+  WHERE drm.device_reference_id = dr.id
+    AND drm.mapping_version = dr.active_mapping_version
+    AND drm.role = 'battery'
+    AND drm.is_active = TRUE
+  ORDER BY m.ts DESC
   LIMIT 1
-) b ON TRUE
-ORDER BY d.network,d.external_id;`;
+) mapped_battery ON TRUE
+ORDER BY d.network, d.external_id;`;
   msg.params = [];
   return msg;
 }

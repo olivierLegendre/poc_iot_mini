@@ -84,14 +84,14 @@ The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow
   API responses are wrapped as `{ ok: true, data: ... }` on success and `{ ok: false, error: { code, message, details } }` on validation or business-rule failures.
 - Builds FlowFuse Dashboard pages with:
 - **PoC activity** charts (live, record, and complete views). Defaults on load: Source = "Both", Range = "Last 1 hour".
-- **All Devices** (`/devices`): a list of all devices that have sent data, with online/offline based on last uplink (online if seen within 1 hour), plus a `device_reference` selector to manually assign or re-assign a device to an existing reference.
+- **All Devices** (`/devices`): a list of all devices that have sent data, with online/offline based on the last non-retained uplink (online if seen within 1 hour), plus a `device_reference` selector to manually assign or re-assign a device to an existing reference. An explicit non-retained `availability=offline` keeps the device offline until the next non-retained live message.
   - The current reference label avoids duplicate formatting when display name equals key.
   - The action button is styled as enabled only when assignment is possible and grayed out otherwise.
   - The button label is `Assign` for unlinked devices and `Re-assign` for already linked devices.
 - **Actuators** (`/actuators`): dynamically generated from device-reference capabilities/mappings (no hardcoded device IDs). Controls and status rows are built from mapped actuators and their latest telemetry.
-- **Event Sensors** (`/event-sensors`): dynamically generated from mappings with role `event`; shows the latest 5 value transitions per mapped event field/device and online/offline status.
-- **Periodic Sensors** (`/periodic-sensors`): dynamically generated from references with capability `periodic_sensor` and mappings with role `metric`. Only numeric mappings (`number` / `integer`) are charted. Rendering is generic (parameter over time), with one chart per mapped metric and UI grouping by device.
-- **Battery & Status** (`/battery-status`): latest battery levels with color coding and status warnings using generic telemetry-driven rules (no device-specific hardcoded IDs). Warnings show "battery low" (<25%) or "battery very low" (<10%).
+- **Event Sensors** (`/event-sensors`): dynamically generated from mappings with role `event`; shows the latest 5 value transitions per mapped event field/device and online/offline status, highlights the most recent change, and displays a clear current state from the latest event.
+- **Periodic Sensors** (`/periodic-sensors`): dynamically generated from references with capability `periodic_sensor` and mappings with role `metric`. Mapped `number` / `integer` / `boolean` / `text` metrics are charted. Rendering is generic (parameter over time), with one chart per mapped metric and UI grouping by device, including empty charts when no points exist in the selected range. Range options are `Last 1 Hour` (default), `Last 6 Hours`, `Last 24H`, and `Last week`. Bucket supports `Auto` (default resolution by range) and manual override (`1 minute`, `5 minutes`, `15 minutes`, `1 hour`). Numeric metrics render as axis-based time-series charts; boolean/text metrics render as step-like charts. Small point markers highlight actual update samples.
+- **Battery & Status** (`/battery-status`): latest battery levels with color coding and status warnings using dynamic `device_reference_mapping` role `battery` (no device-specific hardcoded IDs). Devices without an active battery mapping are treated as connected devices and display `Connected device`. Warnings show "battery low" (<25%) or "battery very low" (<10%).
 - **Device References** (`/devices-references`): reference management page with mapping suggestions and reference actions:
   - list deterministic mapping suggestions per device,
   - link a device to an existing reference,
@@ -100,11 +100,13 @@ The Node-RED `stack/nodered/data/flows.json` file includes a base ingestion flow
 - **Device Mapping** (`/device-mapping`): page for one selected `device_reference` at a time, showing available candidate fields and letting you decide:
   - which fields are used,
   - the mapping role (`metric`, `status`, `battery`, `event`, `actuation`, `metadata`),
-  - normalized field name,
+  - normalized field name (Unicode letters/digits are supported, including accents such as `é`),
   - data type and unit,
   - and active state.
+  - Historical event and periodic data continuity is keyed by `source_path`, so renaming `normalized_field` changes labels without dropping history.
+- Dashboard date/time rendering uses French locale formatting (`fr-FR`) in page templates.
 - Dashboard form controls (`select`, `input`, `textarea`, checkboxes/radios, and buttons) include shared interactive styling so editable fields are visually distinct from plain text, with explicit hover/focus/disabled states.
-Online/offline on the **All Devices** page uses `THRESHOLD_LAST_SEEN_MINUTES` from `stack/.env` (default 60 minutes).
+Online/offline on the **All Devices** page uses `THRESHOLD_LAST_SEEN_MINUTES` from `stack/.env` (default 60 minutes), computed from non-retained telemetry only.
 
 Update the MQTT broker and PostgreSQL credentials in the config nodes if your services use non-default values. When running Node-RED inside Docker Compose, the hostnames should remain `mosquitto` and `postgres`.
 
@@ -134,6 +136,35 @@ After any `.env` Zigbee change:
 
 If you use an external MQTT simulator, it can run side by side with real devices by publishing synthetic messages to the same topics that Zigbee2MQTT and ChirpStack use.
 
+## LoRa codec source order (ChirpStack)
+Use this order for every LoRa device profile:
+
+1) **First, use ChirpStack global device repository** (import/update it, then select a matching profile / codec in ChirpStack UI).
+
+```bash
+docker compose -f stack/docker-compose.yml exec -T chirpstack sh -lc '
+set -e
+wget -q -O /tmp/chirpstack-device-profiles.tar.gz https://github.com/chirpstack/chirpstack-device-profiles/archive/refs/heads/master.tar.gz
+tar -xzf /tmp/chirpstack-device-profiles.tar.gz -C /tmp
+chirpstack --config /etc/chirpstack import-lorawan-device-profiles --dir /tmp/chirpstack-device-profiles-master
+'
+```
+
+Optional legacy repository import (only for older device definitions):
+
+```bash
+docker compose -f stack/docker-compose.yml exec -T chirpstack sh -lc '
+set -e
+wget -q -O /tmp/lorawan-devices.tar.gz https://github.com/TheThingsNetwork/lorawan-devices/archive/refs/heads/master.tar.gz
+tar -xzf /tmp/lorawan-devices.tar.gz -C /tmp
+chirpstack --config /etc/chirpstack import-legacy-lorawan-devices-repository --dir /tmp/lorawan-devices-master
+'
+```
+
+2) **If not found in the ChirpStack repository, use the vendor's official documentation/repository codec** for that exact model and firmware (for example, Dragino official decoder files).
+
+3) Validate decoded keys using real uplinks before mapping fields in `/device-mapping`.
+
 ## Hardware-specific guides
 - SMLIGHT SLZB-06U (Zigbee coordinator): `devices/zigbee/SMLIGHT_SLZB-06U/README.md`
 - HZ light sensor (periodic Zigbee sensor): `devices/zigbee/HZ_LIGHT_ZIGBEE/README.md`
@@ -147,6 +178,9 @@ If you use an external MQTT simulator, it can run side by side with real devices
 3) `docker compose logs chirpstack` should not show `operator class "gin_trgm_ops" does not exist for access method "gin"`.
 4) `docker compose logs zigbee2mqtt` should show a successful connection to the adapter and no repeated reconnect loops.
 5) If PostgreSQL bootstrap fails, `scripts/40_docker_up.sh` exits and tears down containers with `docker compose down` (volumes are preserved).
+6) Run `bash scripts/helpers/runtime_check.sh` for an automated full-stack runtime audit (all stack services, HTTP/TCP endpoints, service readiness checks, database summary, recent logs, and Zigbee adapter TCP reachability).
+   Use `--brief` for warnings/failures plus summary only, or `--verbose` for extra container details and matching log lines when checks warn.
+   Host, port, and service URL checks are read from `stack/.env` (`STACK_BIND_HOST`, `NODERED_*`, `CHIRPSTACK_*`, `ZIGBEE2MQTT_*`, plus the existing `MQTT_PORT`, `POSTGRES_PORT`, `LNS_PORT`, `POSTGRES_ADMIN_*`, and `NODERED_PG_DB`).
 
 ## Data persistence
 - PostgreSQL data persists across container restarts because it uses the `pg-data` named volume. It is only lost if the volume is removed (for example, `docker compose down -v`).
