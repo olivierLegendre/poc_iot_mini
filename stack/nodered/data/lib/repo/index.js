@@ -899,6 +899,7 @@ function buildActuatorStatusQuery(msg) {
     d.display_name,
     dr.reference_key,
     COALESCE(dr.meta->>'reference_display_name', dr.reference_key) AS reference_display_name,
+    dr.meta->>'power_source' AS reference_power_source,
     dr.active_mapping_version,
     EXISTS (
       SELECT 1
@@ -908,7 +909,16 @@ function buildActuatorStatusQuery(msg) {
         AND drm.mapping_version = drx.active_mapping_version
         AND drm.is_active = true
         AND drm.role = 'actuation'
-    ) AS has_actuation
+    ) AS has_actuation,
+    EXISTS (
+      SELECT 1
+      FROM poc.device_reference_mapping drm
+      JOIN poc.device_reference drx ON drx.id = drm.device_reference_id
+      WHERE drx.id = d.device_reference_id
+        AND drm.mapping_version = drx.active_mapping_version
+        AND drm.is_active = true
+        AND drm.role = 'battery'
+    ) AS has_battery_mapping
   FROM poc.devices d
   JOIN poc.device_reference dr ON dr.id = d.device_reference_id
   LEFT JOIN poc.device_reference_capability cap
@@ -938,8 +948,19 @@ SELECT
   ad.reference_key,
   ad.reference_display_name,
   ad.has_actuation,
+  ad.reference_power_source,
+  ad.has_battery_mapping,
   t.ts,
   t.metrics,
+  mapped_battery.ts AS mapped_battery_ts,
+  mapped_battery.metric_name AS mapped_battery_metric_name,
+  mapped_battery.value_type AS mapped_battery_value_type,
+  mapped_battery.value_number AS mapped_battery_value_number,
+  mapped_battery.value_text AS mapped_battery_value_text,
+  mapped_battery.value_boolean AS mapped_battery_value_boolean,
+  mapped_battery.value_json AS mapped_battery_value_json,
+  mapped_battery.unit AS mapped_battery_unit,
+  mapped_battery.data_type AS mapped_battery_data_type,
   COALESCE(
     jsonb_agg(
       jsonb_build_object(
@@ -955,6 +976,28 @@ SELECT
   ) AS mappings
 FROM actuator_devices ad
 LEFT JOIN poc.latest_telemetry t ON t.device_id = ad.id
+LEFT JOIN LATERAL (
+  SELECT
+    m.ts,
+    m.metric_name,
+    m.value_type,
+    m.value_number,
+    m.value_text,
+    m.value_boolean,
+    m.value_json,
+    m.unit,
+    drm.data_type
+  FROM poc.device_reference_mapping drm
+  JOIN poc.metrics m
+    ON m.mapping_id = drm.id
+   AND m.device_id = ad.id
+  WHERE drm.device_reference_id = ad.device_reference_id
+    AND drm.mapping_version = ad.active_mapping_version
+    AND drm.is_active = TRUE
+    AND drm.role = 'battery'
+  ORDER BY m.ts DESC, m.id DESC
+  LIMIT 1
+) mapped_battery ON TRUE
 LEFT JOIN poc.device_reference_mapping map
   ON map.device_reference_id = ad.device_reference_id
  AND map.mapping_version = ad.active_mapping_version
@@ -968,8 +1011,19 @@ GROUP BY
   ad.reference_key,
   ad.reference_display_name,
   ad.has_actuation,
+  ad.reference_power_source,
+  ad.has_battery_mapping,
   t.ts,
-  t.metrics
+  t.metrics,
+  mapped_battery.ts,
+  mapped_battery.metric_name,
+  mapped_battery.value_type,
+  mapped_battery.value_number,
+  mapped_battery.value_text,
+  mapped_battery.value_boolean,
+  mapped_battery.value_json,
+  mapped_battery.unit,
+  mapped_battery.data_type
 ORDER BY ad.reference_display_name, ad.network, ad.external_id;`;
   msg.params = [];
   return msg;
@@ -1284,6 +1338,45 @@ ORDER BY d.network, d.external_id;`;
   return msg;
 }
 
+function buildScenarioBootstrapQuery(msg) {
+  msg.query = `WITH bindings AS (
+  SELECT *
+  FROM (
+    VALUES
+      ('light', 'hz_light_zigbee_01', 'luminosité'),
+      ('occupancy', 'sonoff_snzb_03p_01', 'occupation'),
+      ('state', 'nous_a1z_01', 'state')
+  ) AS v(binding_key, display_name, metric_name)
+)
+SELECT
+  b.binding_key,
+  latest_metric.ts,
+  latest_metric.value_type,
+  latest_metric.value_number,
+  latest_metric.value_text,
+  latest_metric.value_boolean
+FROM bindings b
+LEFT JOIN poc.devices d
+  ON COALESCE(d.display_name, d.external_id) = b.display_name
+LEFT JOIN LATERAL (
+  SELECT
+    m.ts,
+    m.value_type,
+    m.value_number,
+    m.value_text,
+    m.value_boolean
+  FROM poc.metrics m
+  WHERE d.id IS NOT NULL
+    AND m.device_id = d.id
+    AND m.metric_name = b.metric_name
+  ORDER BY m.ts DESC, m.id DESC
+  LIMIT 1
+) latest_metric ON TRUE
+ORDER BY b.binding_key;`;
+  msg.params = [];
+  return msg;
+}
+
 module.exports = {
   devices: {
     buildUpsertQuery: buildDeviceUpsertQuery,
@@ -1318,6 +1411,7 @@ module.exports = {
     buildToggleLookupQuery,
     buildEventSensorChangesQuery,
     buildPeriodicMetricsQuery,
-    buildBatteryStatusQuery
+    buildBatteryStatusQuery,
+    buildScenarioBootstrapQuery
   }
 };

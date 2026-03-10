@@ -2,6 +2,22 @@
 
 const { getDeviceReferenceSuggestionMessage } = require('./messages');
 
+const INGEST_ZIGBEE_DEDUP_KEY = 'ingestZigbeeDedupCache';
+const INGEST_ZIGBEE_DEDUP_STATS_KEY = 'ingestZigbeeDedupStats';
+const INGEST_ZIGBEE_DEDUP_WINDOW_MS = 2000;
+const INGEST_ZIGBEE_DEDUP_IGNORED_FIELDS = new Set(['linkquality', 'last_seen']);
+const INGEST_ZIGBEE_DEDUP_LOG_EVERY = 25;
+const SCENARIO_LIVE_VALUES_KEY = 'scenarioLiveValues';
+const SCENARIO_ACTIVE_KEY = 'scenarioActive';
+const SCENARIO_TRIGGER_STATE_KEY = 'scenarioTriggerState';
+const SCENARIO_LUX_SIMPLE_KEY = 'lux_simple';
+const SCENARIO_LUX_PRESENCE_KEY = 'lux_presence';
+const SCENARIO_KEYS = new Set([SCENARIO_LUX_SIMPLE_KEY, SCENARIO_LUX_PRESENCE_KEY]);
+const SCENARIO_LIGHT_THRESHOLD_LUX = 150;
+const SCENARIO_MIN_SWITCH_INTERVAL_MS = 10000;
+const SCENARIO_COMMAND_TOPIC = 'zigbee2mqtt/nous_a1z_01/set';
+const SCENARIO_PERSISTENT_STORE = 'file';
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -209,6 +225,10 @@ function normalizeMqtt(msg, flow) {
     if (parts.length >= 2 && parts[1] !== 'bridge') {
       const topicDevice = parts[1];
       const isAvailabilityTopic = parts.length >= 3 && parts[2] === 'availability';
+      const isCommandTopic = parts.length >= 3 && parts[2] === 'set';
+      if (isCommandTopic) {
+        return null;
+      }
       let ieee = canonicalIeee(payload.ieee_address || payload.ieeeAddr);
       if (!ieee && isIeeeAddress(topicDevice)) ieee = topicDevice.toLowerCase();
       if (!ieee && zigbeeByFriendly[topicDevice]) ieee = zigbeeByFriendly[topicDevice];
@@ -281,8 +301,118 @@ function normalizeMqtt(msg, flow) {
     return null;
   }
 
+  if (shouldSuppressRepeatedZigbeeState(out, flow)) {
+    return null;
+  }
+
   msg.poc = out;
   return msg;
+}
+
+function zigbeeDedupMetricsSignature(metrics) {
+  if (!metrics || typeof metrics !== 'object') {
+    return null;
+  }
+
+  const filtered = {};
+  for (const [key, value] of Object.entries(metrics)) {
+    if (INGEST_ZIGBEE_DEDUP_IGNORED_FIELDS.has(String(key))) {
+      continue;
+    }
+    filtered[key] = value;
+  }
+
+  try {
+    return JSON.stringify(filtered);
+  } catch (err) {
+    return null;
+  }
+}
+
+function shouldSuppressRepeatedZigbeeState(out, flow) {
+  if (!out || out.source !== 'zigbee' || out.eventType !== 'state') {
+    return false;
+  }
+  if (!flow || typeof flow.get !== 'function' || typeof flow.set !== 'function') {
+    return false;
+  }
+
+  const signature = zigbeeDedupMetricsSignature(out.metrics);
+  if (!signature) {
+    return false;
+  }
+
+  const key = `${out.source}:${out.deviceId}:${out.eventType}`;
+  const nowMs = Date.now();
+  const rawCache = flow.get(INGEST_ZIGBEE_DEDUP_KEY);
+  const cache = (rawCache && typeof rawCache === 'object')
+    ? { ...rawCache }
+    : {};
+  const previous = cache[key];
+
+  for (const [cacheKey, entry] of Object.entries(cache)) {
+    const seenAtMs = Number(entry && entry.seenAtMs);
+    if (!Number.isFinite(seenAtMs) || (nowMs - seenAtMs) > (INGEST_ZIGBEE_DEDUP_WINDOW_MS * 10)) {
+      delete cache[cacheKey];
+    }
+  }
+
+  cache[key] = {
+    signature,
+    seenAtMs: nowMs
+  };
+  flow.set(INGEST_ZIGBEE_DEDUP_KEY, cache);
+
+  let suppressed = false;
+  if (!previous || previous.signature !== signature) {
+    updateZigbeeDedupStats(flow, out, false, nowMs);
+    return false;
+  }
+
+  const seenAtMs = Number(previous.seenAtMs);
+  if (!Number.isFinite(seenAtMs)) {
+    updateZigbeeDedupStats(flow, out, false, nowMs);
+    return false;
+  }
+
+  suppressed = (nowMs - seenAtMs) <= INGEST_ZIGBEE_DEDUP_WINDOW_MS;
+  updateZigbeeDedupStats(flow, out, suppressed, nowMs);
+  return suppressed;
+}
+
+function updateZigbeeDedupStats(flow, out, suppressed, nowMs) {
+  if (!flow || typeof flow.get !== 'function' || typeof flow.set !== 'function') {
+    return;
+  }
+
+  const raw = flow.get(INGEST_ZIGBEE_DEDUP_STATS_KEY);
+  const stats = (raw && typeof raw === 'object') ? { ...raw } : {
+    passed: 0,
+    suppressed: 0,
+    lastDeviceId: null,
+    lastDisplayName: null,
+    lastEventTs: null,
+    lastSuppressedAt: null,
+    lastPassedAt: null
+  };
+
+  if (suppressed) {
+    stats.suppressed += 1;
+    stats.lastSuppressedAt = new Date(nowMs).toISOString();
+  } else {
+    stats.passed += 1;
+    stats.lastPassedAt = new Date(nowMs).toISOString();
+  }
+
+  stats.lastDeviceId = cleanString(out && out.deviceId) || null;
+  stats.lastDisplayName = cleanString(out && out.displayName) || null;
+  stats.lastEventTs = cleanString(out && out.ts) || null;
+  flow.set(INGEST_ZIGBEE_DEDUP_STATS_KEY, stats);
+
+  if (suppressed && stats.suppressed % INGEST_ZIGBEE_DEDUP_LOG_EVERY === 0) {
+    const label = stats.lastDisplayName || stats.lastDeviceId || 'unknown-device';
+    console.warn(`[ingest.zigbee.dedup] suppressed=${stats.suppressed} passed=${stats.passed} last_device=${label}`);
+  }
 }
 
 function parseJsonZigbeeTolerant(msg) {
@@ -1473,6 +1603,35 @@ function computeOnlineStatus(lastTs, thresholdMs, metricsRaw) {
   return Number.isFinite(lastMs) && (Date.now() - lastMs) <= thresholdMs;
 }
 
+function contextGet(flow, key, storeName) {
+  if (!flow || typeof flow.get !== 'function') {
+    return null;
+  }
+  if (storeName) {
+    try {
+      return flow.get(key, storeName);
+    } catch (err) {
+      // Fall back to default context store when named store is unavailable.
+    }
+  }
+  return flow.get(key);
+}
+
+function contextSet(flow, key, value, storeName) {
+  if (!flow || typeof flow.set !== 'function') {
+    return;
+  }
+  if (storeName) {
+    try {
+      flow.set(key, value, storeName);
+      return;
+    } catch (err) {
+      // Fall back to default context store when named store is unavailable.
+    }
+  }
+  flow.set(key, value);
+}
+
 function batteryColor(pct) {
   if (pct === null || pct === undefined || Number.isNaN(Number(pct))) return '#9e9e9e';
   const n = Number(pct);
@@ -1775,8 +1934,23 @@ function formatActuatorStatus(msg, deps) {
       : (metrics.state !== undefined ? 'state' : (metrics.relay !== undefined ? 'relay' : null));
     const stateValue = sourcePath ? getByPath(metrics, sourcePath) : undefined;
     const stateText = formatActuationState(stateValue);
-
-    const batteryInfo = deriveBatteryState(metrics, null, pctFromVoltage);
+    const hasBatteryMapping = isTrue(r && r.has_battery_mapping);
+    const mappedBattery = deriveMappedBattery(r);
+    const referencePowerSource = lowerTrimmedString(r && r.reference_power_source);
+    const batteryMetrics = {};
+    if (Number.isFinite(mappedBattery.batteryPct)) {
+      batteryMetrics.battery = mappedBattery.batteryPct;
+    }
+    if (Number.isFinite(mappedBattery.batteryV)) {
+      batteryMetrics.battery_v = mappedBattery.batteryV;
+    }
+    if (!hasBatteryMapping || referencePowerSource === 'mains') {
+      batteryMetrics.mains_powered = true;
+    } else if (referencePowerSource === 'battery') {
+      batteryMetrics.mains_powered = false;
+    }
+    const batteryBaseMetrics = hasBatteryMapping ? {} : metrics;
+    const batteryInfo = deriveBatteryState(batteryBaseMetrics, batteryMetrics, pctFromVoltage);
     const referenceDisplayName = cleanString(r && r.reference_display_name);
     const referenceKey = cleanString(r && r.reference_key);
     const referenceLabel = referenceDisplayName && referenceKey && referenceDisplayName !== referenceKey
@@ -2196,6 +2370,274 @@ function formatBatteryStatus(msg, deps) {
   return msg;
 }
 
+function readScenarioLiveValues(flow) {
+  const fallback = {
+    light: { value: null, updatedAt: null, origin: null },
+    occupancy: { value: null, updatedAt: null, origin: null },
+    state: { value: null, updatedAt: null, origin: null }
+  };
+  const raw = contextGet(flow, SCENARIO_LIVE_VALUES_KEY, SCENARIO_PERSISTENT_STORE) || null;
+  if (!raw || typeof raw !== 'object') {
+    return fallback;
+  }
+  return {
+    light: (raw.light && typeof raw.light === 'object') ? { ...fallback.light, ...raw.light } : { ...fallback.light },
+    occupancy: (raw.occupancy && typeof raw.occupancy === 'object') ? { ...fallback.occupancy, ...raw.occupancy } : { ...fallback.occupancy },
+    state: (raw.state && typeof raw.state === 'object') ? { ...fallback.state, ...raw.state } : { ...fallback.state }
+  };
+}
+
+function readScenarioActive(flow) {
+  const value = contextGet(flow, SCENARIO_ACTIVE_KEY, SCENARIO_PERSISTENT_STORE);
+  return (typeof value === 'string' && SCENARIO_KEYS.has(value)) ? value : null;
+}
+
+function buildScenarioPagePayload(flow) {
+  return {
+    activeScenario: readScenarioActive(flow),
+    values: readScenarioLiveValues(flow)
+  };
+}
+
+function resetScenarioTriggerState(flow) {
+  contextSet(flow, SCENARIO_TRIGGER_STATE_KEY, {
+    lastCommandAt: null,
+    pendingState: null
+  });
+}
+
+function captureScenarioValues(msg, flow) {
+  const poc = msg && msg.poc;
+  if (!poc || typeof poc !== 'object' || poc.source !== 'zigbee' || poc.eventType !== 'state') {
+    return null;
+  }
+
+  const displayName = lowerTrimmedString(poc.displayName);
+  const metrics = (poc.metrics && typeof poc.metrics === 'object') ? poc.metrics : null;
+  if (!displayName || !metrics) {
+    return null;
+  }
+
+  let key = null;
+  let nextValue = null;
+
+  if (displayName === 'hz_light_zigbee_01') {
+    const numeric = Number(metrics.illuminance_lux);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    key = 'light';
+    nextValue = numeric;
+  } else if (displayName === 'sonoff_snzb_03p_01') {
+    const boolValue = parseBoolean(metrics.occupancy);
+    if (boolValue === null) {
+      return null;
+    }
+    key = 'occupancy';
+    nextValue = boolValue;
+  } else if (displayName === 'nous_a1z_01') {
+    const stateValue = String(metrics.state || '').trim().toUpperCase();
+    if (stateValue !== 'ON' && stateValue !== 'OFF') {
+      return null;
+    }
+    key = 'state';
+    nextValue = stateValue;
+  } else {
+    return null;
+  }
+
+  const state = readScenarioLiveValues(flow);
+  const currentEntry = state[key] || { value: null, updatedAt: null, origin: null };
+  const changed = currentEntry.value !== nextValue || currentEntry.origin !== 'mqtt';
+
+  state[key] = {
+    value: nextValue,
+    updatedAt: poc.ts || isoNow(),
+    origin: 'mqtt'
+  };
+
+  contextSet(flow, SCENARIO_LIVE_VALUES_KEY, state, SCENARIO_PERSISTENT_STORE);
+
+  const pageMsg = { payload: buildScenarioPagePayload(flow) };
+  const triggerMsg = changed ? { scenarioChangedKey: key } : null;
+  return [pageMsg, triggerMsg];
+}
+
+function setActiveScenario(msg, flow) {
+  let requestedKey = null;
+  if (typeof (msg && msg.payload) === 'string') {
+    const text = lowerTrimmedString(msg.payload);
+    requestedKey = SCENARIO_KEYS.has(text) ? text : null;
+  } else {
+    const payloadObj = asPayloadObject(msg);
+    const candidate = lowerTrimmedString(payloadObj && payloadObj.scenarioKey);
+    requestedKey = SCENARIO_KEYS.has(candidate) ? candidate : null;
+  }
+
+  if (!requestedKey) {
+    msg.topic = 'scenario/state';
+    msg.payload = buildScenarioPagePayload(flow);
+    delete msg.scenarioChangedKey;
+    return msg;
+  }
+
+  const currentKey = readScenarioActive(flow);
+  const nextKey = (requestedKey && requestedKey === currentKey) ? null : requestedKey;
+
+  contextSet(flow, SCENARIO_ACTIVE_KEY, nextKey, SCENARIO_PERSISTENT_STORE);
+  resetScenarioTriggerState(flow);
+
+  msg.topic = 'scenario/state';
+  msg.payload = buildScenarioPagePayload(flow);
+  if (nextKey) {
+    msg.scenarioChangedKey = 'activate';
+  } else {
+    delete msg.scenarioChangedKey;
+  }
+  return msg;
+}
+
+function mergeScenarioBootstrapValues(msg, flow) {
+  const rows = Array.isArray(msg && msg.payload) ? msg.payload : null;
+  if (!rows) {
+    return null;
+  }
+
+  function asMs(value) {
+    const ms = Date.parse(value || '');
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  const state = readScenarioLiveValues(flow);
+  for (const row of rows) {
+    const key = String(row && row.binding_key ? row.binding_key : '').trim();
+    if (!key || !state[key]) {
+      continue;
+    }
+
+    let nextValue = null;
+    const valueType = String(row && row.value_type ? row.value_type : '').trim().toLowerCase();
+    if (valueType === 'number' || valueType === 'integer') {
+      nextValue = row.value_number;
+    } else if (valueType === 'boolean') {
+      nextValue = row.value_boolean;
+    } else if (valueType === 'text') {
+      nextValue = row.value_text;
+    }
+    if (nextValue === null || nextValue === undefined) {
+      continue;
+    }
+
+    const incomingTs = String(row && row.ts ? row.ts : '').trim() || null;
+    const currentMs = asMs(state[key].updatedAt);
+    const incomingMs = asMs(incomingTs);
+    if (Number.isFinite(currentMs) && Number.isFinite(incomingMs) && incomingMs < currentMs) {
+      continue;
+    }
+
+    state[key] = {
+      value: nextValue,
+      updatedAt: incomingTs || state[key].updatedAt || null,
+      origin: 'db'
+    };
+  }
+
+  contextSet(flow, SCENARIO_LIVE_VALUES_KEY, state, SCENARIO_PERSISTENT_STORE);
+  msg.topic = 'scenario/state';
+  msg.payload = {
+    activeScenario: readScenarioActive(flow),
+    values: state
+  };
+  return msg;
+}
+
+function triggerScenarioEvent(msg, flow) {
+  const changedKey = String(
+    msg && (
+      msg.scenarioChangedKey ||
+      (msg.topic === 'poc/normalized/luminosite' ? 'light' :
+        (msg.topic === 'poc/normalized/occupation' ? 'occupancy' :
+          (msg.topic === 'poc/normalized/etat_prise' ? 'state' : '')))
+    ) || ''
+  ).trim();
+  if (!changedKey) {
+    return null;
+  }
+
+  const liveValues = readScenarioLiveValues(flow);
+  const rawLightValue = liveValues && liveValues.light ? liveValues.light.value : null;
+  const lightValue = (rawLightValue === null || rawLightValue === undefined || rawLightValue === '')
+    ? NaN
+    : Number(rawLightValue);
+  const currentState = String(liveValues && liveValues.state && liveValues.state.value ? liveValues.state.value : '').trim().toUpperCase();
+
+  const rawTriggerState = (flow && typeof flow.get === 'function' && flow.get(SCENARIO_TRIGGER_STATE_KEY)) || {};
+  const triggerState = {
+    lastCommandAt: typeof rawTriggerState.lastCommandAt === 'string' ? rawTriggerState.lastCommandAt : null,
+    pendingState: typeof rawTriggerState.pendingState === 'string' ? rawTriggerState.pendingState : null
+  };
+
+  const activeScenario = readScenarioActive(flow);
+
+  if (triggerState.pendingState && triggerState.pendingState === currentState) {
+    triggerState.pendingState = null;
+  }
+
+  if (!activeScenario) {
+    flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+    return null;
+  }
+
+  const allowedChangeKeys = activeScenario === SCENARIO_LUX_PRESENCE_KEY
+    ? new Set(['light', 'state', 'occupancy', 'activate'])
+    : new Set(['light', 'state', 'activate']);
+  if (!allowedChangeKeys.has(changedKey)) {
+    flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+    return null;
+  }
+
+  if (!Number.isFinite(lightValue) || (currentState !== 'ON' && currentState !== 'OFF')) {
+    flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+    return null;
+  }
+
+  let desiredState = currentState;
+  if (activeScenario === SCENARIO_LUX_PRESENCE_KEY) {
+    const occupancyValue = parseBoolean(liveValues && liveValues.occupancy ? liveValues.occupancy.value : null);
+    if (lightValue < SCENARIO_LIGHT_THRESHOLD_LUX) {
+      if (occupancyValue === null) {
+        flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+        return null;
+      }
+      desiredState = occupancyValue ? 'ON' : 'OFF';
+    } else if (currentState === 'ON') {
+      desiredState = 'OFF';
+    }
+  } else {
+    desiredState = lightValue < SCENARIO_LIGHT_THRESHOLD_LUX ? 'ON' : 'OFF';
+  }
+
+  if (desiredState === currentState || triggerState.pendingState === desiredState) {
+    flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+    return null;
+  }
+
+  const lastCommandMs = Date.parse(triggerState.lastCommandAt || '');
+  if (Number.isFinite(lastCommandMs) && (Date.now() - lastCommandMs) < SCENARIO_MIN_SWITCH_INTERVAL_MS) {
+    flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+    return null;
+  }
+
+  triggerState.lastCommandAt = isoNow();
+  triggerState.pendingState = desiredState;
+  flow.set(SCENARIO_TRIGGER_STATE_KEY, triggerState);
+
+  return {
+    topic: SCENARIO_COMMAND_TOPIC,
+    payload: { state: desiredState }
+  };
+}
+
 module.exports = {
   ingest: {
     normalizeMqtt,
@@ -2235,6 +2677,10 @@ module.exports = {
     triggerPeriodicQueries,
     formatAllDevices,
     formatActuatorStatus,
+    captureScenarioValues,
+    mergeScenarioBootstrapValues,
+    setActiveScenario,
+    triggerScenarioEvent,
     buildToggleCommand,
     formatEventChanges,
     formatPeriodicChartsByDevice,

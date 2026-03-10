@@ -273,6 +273,8 @@ module.exports = {
         /** enable or disable diagnostics display in the node-red editor. Must be set to `false` to disable */
         ui: true,
     },
+    /** Emit runtime metric events when logging.metrics is enabled. */
+    runtimeMetricInterval: 5000,
     /** Configure runtimeState options
      * - enabled:  When `enabled` is `true` flows runtime can be Started/Stopped
      *   by POSTing to available at http://localhost:1880/flows/state
@@ -312,11 +314,15 @@ module.exports = {
      * provided here will enable file-based context that flushes to disk every 30 seconds.
      * Refer to the documentation for further options: https://nodered.org/docs/api/context/
      */
-    //contextStorage: {
-    //    default: {
-    //        module:"localfilesystem"
-    //    },
-    //},
+    contextStorage: {
+        default: "memory",
+        memory: {
+            module: "memory"
+        },
+        file: {
+            module: "localfilesystem"
+        }
+    },
 
     /** `global.keys()` returns a list of all properties set in global context.
      * This allows them to be displayed in the Context Sidebar within the editor.
